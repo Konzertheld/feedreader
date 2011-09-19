@@ -137,6 +137,8 @@ class FeedList extends Plugin
 			case 'Configure':
 				// Create a new Form called 'feedlist'
 				$ui = new FormUI( 'feedlist' );
+				// Add a text control for the number of feed items shown
+				$itemcount = $ui->append('text', 'itemcount', 'feedlist__itemcount', 'Number of shown Feed Items');
 				// Add a text control for the feed URL
 				$feedurl = $ui->append('textmulti', 'feedurl', 'feedlist__feedurl', 'Feed URL');
 				// Mark the field as required
@@ -184,11 +186,12 @@ class FeedList extends Plugin
 	{
 		// Get the most recent ten items from each feed
 		$feedurls = Options::get( 'feedlist__feedurl' );
+		$count = Options::get( 'feedlist__itemcount' );
 		if ( $feedurls ) {
 			$feeds = array();
 			$feeditems = array();
 			foreach( $feedurls as $index=>$feedurl ) {
-				$items = DB::get_results( 'SELECT * FROM {feedlist} WHERE feed_id = ? ORDER BY updated DESC LIMIT 10', array($index) );
+				$items = DB::get_results( 'SELECT * FROM {feedlist} WHERE feed_id = ? ORDER BY updated DESC LIMIT '.$count, array($index) );
 
 				// If there are items to display, produce output
 				if(count($items)) {
