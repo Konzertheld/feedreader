@@ -13,15 +13,6 @@
 class FeedList extends Plugin
 { 
 
-	
-	/**
-	* Add update beacon support
-	**/
-	public function action_update_check()
-	{
-		Update::add( 'Feed List', '9a75f180-3da2-11dd-ae16-0800200c9a66', $this->info->version );
-	}
-
 	/**
 	 * Plugin init action, executed when plugins are initialized.
 	 */ 

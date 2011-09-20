@@ -5,8 +5,9 @@
 	<url>http://asymptomatic.net/</url>
 	<author url="http://asymptomatic.net/">Owen Winkler</author>
 	<author url="http://chrismeller.com">Chris Meller</author>
-	<version>0.4.2</version>
+	<version>0.4.3</version>
 	<description><![CDATA[Outputs an RSS feed as an unordered list. Now supports Atom too!]]></description>
+	<guid>A13E7304-E392-11E0-A543-5D724824019B</guid>
 </pluggable>
 
  
