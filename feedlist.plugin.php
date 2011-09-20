@@ -20,6 +20,8 @@ class FeedList extends Plugin
 	{
 		// Register the name of a new database table.
 		DB::register_table('feedlist');
+		// Register block template
+		$this->add_template( 'block.feedlist', dirname(__FILE__) . '/block.feedlist.php' );
 	}
 
 	/**
@@ -92,6 +94,31 @@ class FeedList extends Plugin
 			// Log the cron deletion event.
 			EventLog::log('Deleted cron for feed updates.');
 		}
+	}
+
+	public function filter_block_list( $blocklist )
+	{
+		$blocklist[ 'feedlist' ] = _t( 'Feed List' );
+		return $blocklist;
+	}
+	
+	public function action_block_form_feedlist( $form, $block )
+	{
+		$availablefeeds = Options::get( 'feedlist__feedurl' );
+		// $form is already assigned to a FormUI instance
+		$form->append('select','blockfeed', $block, _t('Which feed:'), $availablefeeds, 'tabcontrol_select');
+		$form->append('text', 'itemcountblock', $block, 'Number of shown Feed Items');
+	}
+
+	public function action_block_content_feedlist( $block )
+	{
+		
+ 		$block->blockfeed;
+		$feeditems = array();
+		$items = DB::get_results( 'SELECT * FROM {feedlist} WHERE feed_id = '.$block->blockfeed.' ORDER BY updated DESC LIMIT '.$block->itemcountblock.';');
+		
+		$block->feeditems = $items;
+		
 	}
 
 	/**
