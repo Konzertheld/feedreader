@@ -1,14 +1,8 @@
 <?php
 
 /**
- * FeedList Plugin - Makes feeds available for output in a <ul> from a theme.
- * 
- * To display the feed list in the template output, add this code where the 
- * list should be displayed:
- * <code>
- * <?php echo $feedlist; ? >
- * </code>
- */ 
+ *
+ */
 
 class FeedList extends Plugin
 { 
@@ -18,8 +12,6 @@ class FeedList extends Plugin
 	 */ 
 	public function action_init()
 	{
-		// Register the name of a new database table.
-		DB::register_table('feedlist');
 		// Register block template
 		$this->add_template( 'block.feedlist', dirname(__FILE__) . '/block.feedlist.php' );
 	}
@@ -34,41 +26,6 @@ class FeedList extends Plugin
 		if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) { 
 		// Register a default event log type for this plugin
 		EventLog::register_type( "default", "FeedList" );
-		// Register the name of a new database table
-		DB::register_table('feedlist');// 'plugin_activation' hook is called without first calling 'init'
-		// Create the database table, or upgrade it
-		
-		switch ( DB::get_driver_name() ) {
-			case 'mysql':
-				$schema = 'CREATE TABLE {feedlist} (
-				id INT UNSIGNED AUTO_INCREMENT,
-				feed_id INT NOT NULL DEFAULT 0,
-				guid VARCHAR(255) NOT NULL,
-				title VARCHAR(255) NOT NULL,
-				link VARCHAR(255) NOT NULL,
-				updated DATETIME NOT NULL,
-				description TEXT,
-				PRIMARY KEY (id),
-				UNIQUE KEY guid (guid)
-				);';
-				break;
-			case 'sqlite':
-				$schema = 'CREATE TABLE {feedlist} (
-				id INTEGER PRIMARY KEY AUTOINCREMENT, 
-				feed_id INTEGER NOT NULL DEFAULT 0,
-				guid VARCHAR(255) UNIQUE NOT NULL,
-				title VARCHAR(255) NOT NULL,
-				link VARCHAR(255) NOT NULL,
-				updated DATETIME NOT NULL,
-				description TEXT
-				);';
-				break;
-
-		}
-		DB::dbdelta( $schema );
-
-		// Log a table creation event
-		EventLog::log('Installed feedlist cache table.');
 		// Add a periodical execution event to be triggered hourly
 		CronTab::add_hourly_cron( 'feedlist', 'load_feeds', 'Load feeds for feedlist plugin.' );
 		// Log the cron creation event
@@ -85,40 +42,11 @@ class FeedList extends Plugin
 	{
 		// Was this plugin deactivated?
 		if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) {
-			// Drop the database table
-			DB::query( 'DROP TABLE IF EXISTS {feedlist};');
-			// Log a dropped table event
-			EventLog::log('Removed feedlist cache table.');
 			// Remove the periodical execution event
 			CronTab::delete_cronjob( 'feedlist' );
 			// Log the cron deletion event.
 			EventLog::log('Deleted cron for feed updates.');
 		}
-	}
-
-	public function filter_block_list( $blocklist )
-	{
-		$blocklist[ 'feedlist' ] = _t( 'Feed List' );
-		return $blocklist;
-	}
-	
-	public function action_block_form_feedlist( $form, $block )
-	{
-		$availablefeeds = Options::get( 'feedlist__feedurl' );
-		// $form is already assigned to a FormUI instance
-		$form->append('select','blockfeed', $block, _t('Which feed:'), $availablefeeds, 'tabcontrol_select');
-		$form->append('text', 'itemcountblock', $block, 'Number of shown Feed Items');
-	}
-
-	public function action_block_content_feedlist( $block )
-	{
-		
- 		$block->blockfeed;
-		$feeditems = array();
-		$items = DB::get_results( 'SELECT * FROM {feedlist} WHERE feed_id = '.$block->blockfeed.' ORDER BY updated DESC LIMIT '.$block->itemcountblock.';');
-		
-		$block->feeditems = $items;
-		
 	}
 
 	/**
@@ -133,7 +61,8 @@ class FeedList extends Plugin
 		// Is this plugin the one specified?
 		if($plugin_id == $this->plugin_id()) {
 			// Add a 'configure' action in the admin's list of plugins
-			$actions[]= 'Configure';
+			$actions['configure']= _t('Configure');
+			$actions['update'] = _t('Update All Now');
 		}
 		return $actions;
 	}
@@ -152,7 +81,7 @@ class FeedList extends Plugin
 			// Depending on the action specified, do different things
 			switch($action) {
 			// For the action 'configure':
-			case 'Configure':
+			case 'configure':
 				// Create a new Form called 'feedlist'
 				$ui = new FormUI( 'feedlist' );
 				// Add a text control for the number of feed items shown
@@ -169,6 +98,15 @@ class FeedList extends Plugin
 				// Display the form
 				$ui->append( 'submit', 'save', _t( 'Save' ) );
 				$ui->out();
+				break;
+			case 'update':
+				$result = $this->filter_load_feeds(true);
+				if($result) {
+					Session::notice('RSS Feeds Successfully Updated');
+				}
+				else {
+					Session::error('RSS Feeds Did Not Successfully Update');
+				}
 				break;
 			}
 		}
@@ -193,53 +131,6 @@ class FeedList extends Plugin
 
 		return false;
 	} 
-	
-	/**
-	 * Plugin add_template_vars action, executes just before a template is to be rendered.
-	 * Note that $theme and $handler_vars are passed by reference, and so you can add things to them.
-	 * @param Theme $theme The theme object that is displaying the template.
-	 * @param array $handler_vars Variables passed in the URL to the action handler.
-	 */ 
-	public function action_add_template_vars( $theme, $handler_vars )
-	{
-		// Get the most recent ten items from each feed
-		$feedurls = Options::get( 'feedlist__feedurl' );
-		$count = Options::get( 'feedlist__itemcount' );
-		if ( $feedurls ) {
-			$feeds = array();
-			$feeditems = array();
-			foreach( $feedurls as $index=>$feedurl ) {
-				$items = DB::get_results( 'SELECT * FROM {feedlist} WHERE feed_id = ? ORDER BY updated DESC LIMIT '.$count, array($index) );
-
-				// If there are items to display, produce output
-				if(count($items)) {
-					$feed = "<ul>\n";
-				
-					foreach ( $items as $item ) {
-						$feed.= sprintf( 
-							"\t" . '<li><a href="%1$s">%2$s</a></li>' . "\n", 
-							$item->link, 
-							$item->title
-						);
-					}
-				
-					$feed.= "</ul>\n";
-				}
-				else {
-					$feed = '<p>Sorry, no items to display.</p>';
-				}
-				$feeds[] = $feed;	
-				$feeditems = array_merge($feeditems, $items);
-			}
-			// Assign the output to the template variable $feedlist
-
-			//<? echo $feedlist[0];? >// This will output the first feed list in the template 
-			$theme->assign( 'feedlist', $feeds );
-			$theme->assign( 'feeditems', $feeditems ); 
-		} else {
-			$theme->assign( 'feedlist', "Feedlist needs to be configured." );	
-		}
-	}
 
 	/**
 	 * Plugin load_feeds filter, executes for the cron job defined in action_plugin_activation()
@@ -269,8 +160,9 @@ class FeedList extends Plugin
 			@$dom->loadXML( $xml );
 			
 			if ( $dom->getElementsByTagName('rss')->length > 0 ) {
-				$items = $this->parse_rss( $dom );
-				$this->replace( $feed_id, $items );
+				//$items = $this->parse_rss( $dom );
+				//$this->replace( $feed_id, $items );
+				Eventlog::log('Skipped rss feed, currently unsupported');
 			}
 			else if ( $dom->getElementsByTagName('feed')->length > 0 ) {
 				$items = $this->parse_atom( $dom );
@@ -320,7 +212,7 @@ class FeedList extends Plugin
 			
 			// snag all the child tags we need
 			$feed['title'] = $item->getElementsByTagName('title')->item(0)->nodeValue;
-			$feed['description'] = $item->getElementsByTagName('description')->item(0)->nodeValue;
+			//$feed['content'] = $item->getElementsByTagName('content:encoded')->item(0)->nodeValue;
 			$feed['link'] = $item->getElementsByTagName('link')->item(0)->nodeValue;
 			$feed['guid'] = $item->getElementsByTagName('guid')->item(0)->nodeValue;
 			$feed['published'] = $item->getElementsByTagName('pubDate')->item(0)->nodeValue;
@@ -356,7 +248,7 @@ class FeedList extends Plugin
 			
 			// snag all the child tags we need
 			$feed['title'] = $item->getElementsByTagName('title')->item(0)->nodeValue;
-			$feed['description'] = $item->getElementsByTagName('summary')->item(0)->nodeValue;
+			$feed['content'] = $item->getElementsByTagName('content')->item(0)->nodeValue;
 			$feed['link'] = $item->getElementsByTagName('link')->item(0)->getAttribute('href');
 			$feed['guid'] = $item->getElementsByTagName('id')->item(0)->nodeValue;
 			$feed['published'] = $item->getElementsByTagName('updated')->item(0)->nodeValue;
@@ -373,36 +265,35 @@ class FeedList extends Plugin
 	}
 	
 	/**
-	 * Insert all the feed items into the database using REPLACE INTO, so we'll actually replace existing matched GUIDs.
+	 * Insert all the feed items as posts and modify existing posts
 	 * 
 	 * @param int $feed_id The feed ID stored in the DB.
 	 * @param array $items Array of items parsed from the feed to add.
 	 */
-	private function replace ( $feed_id, $items ) {
-		
-		$sql = 'replace into {feedlist} ( feed_id, guid, title, link, updated, description ) values ( ?, ?, ?, ?, ?, ? )';
-		
+	private function replace ( $feed_id, $items ) {	
 		foreach ( $items as $item ) {
-		
-			$params = array(
-				$feed_id,
-				$item['guid'],
-				$item['title'],
-				$item['link'],
-				HabariDateTime::date_create(),
-				$item['description'],
-			);
-			
-			$result = DB::query( $sql, $params );
+			$post = Post::get(array('all:info' => array('guid' => $item["guid"])));
+			if(!$post) {
+				$post = new Post();
+				$post->content_type = 1;
+				$post->user_id = 1;
+			}
+			$post->title = $item["title"];
+			$post->content = $item["content"];
+			($post->id) ? $post->update() : $post->insert();
+			$post->info->feed_id = $feed_id;
+			$post->info->guid = $item["guid"];
+			$post->info->link = $item["link"];
+			$result = $post->publish();
+			$post->updated = HabariDateTime::date_create($item["published"])->int;
+			$post->pubdate = HabariDateTime::date_create($item["published"])->int;
+			$post->update();
 			
 			if ( !$result ) {
 				EventLog::log( 'There was an error saving a feed item.', 'err', 'feedlist', 'feedlist' );
 			}
-			
 		}
-		
 	}
-
 }	
 
 ?>
