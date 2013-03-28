@@ -4,7 +4,7 @@
  *
  */
 
-class FeedList extends Plugin
+class FeedReader extends Plugin
 { 
 
 	/**

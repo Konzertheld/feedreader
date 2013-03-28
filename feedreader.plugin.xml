@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<pluggable type="plugin">
+	<name>FeedReader</name>
+	<license url="http://www.apache.org/licenses/LICENSE-2.0.html">ASL</license>
+	<author url="http://asymptomatic.net/">Owen Winkler</author>
+	<author url="http://chrismeller.com">Chris Meller</author>
+	<author url="http://konzertheld.de">Christian Gredig</author>
+	<version>0.5</version>
+	<guid>008f165d-d89e-4b54-9bb0-73cff499b142</guid>
+	<description><![CDATA[]]></description>
+	<help>
+		<value><![CDATA[In the plugin configuration can be added multiple feeds. ]]></value>
+	</help>
+</pluggable>
+
+ 
