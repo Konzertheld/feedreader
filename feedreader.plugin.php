@@ -121,9 +121,6 @@ class FeedReader extends Plugin
 	public function updated_config( $ui )
 	{
 		$ui->save();
-
-		// Delete the cached feed data
-		DB::query( 'TRUNCATE {feedlist}' );
 		
 		// Reset the cronjob so that it runs immediately with the change
 		CronTab::delete_cronjob( 'feedlist' );
