@@ -15,6 +15,15 @@ class FeedReader extends Plugin
 		// Register block template
 		$this->add_template( 'block.feedlist', dirname(__FILE__) . '/block.feedlist.php' );
 	}
+	
+	/**
+	 * Add a rewrite rule. The schema is http://yourblog.tld/feed/$slug where $slug is the feed's term's slug.
+	 */
+	public function filter_rewrite_rules($rules)
+    {
+		$rules[] = RewriteRule::create_url_rule('"feed"/feed', 'PluginHandler', 'feedreader_display_feed');
+        return $rules;
+    }
 
 	/**
 	 * Plugin plugin_activation action, executed when any plugin is activated
@@ -30,6 +39,8 @@ class FeedReader extends Plugin
 		CronTab::add_hourly_cron( 'feedlist', 'load_feeds', 'Load feeds for feedlist plugin.' );
 		// Log the cron creation event
 		EventLog::log('Added hourly cron for feed updates.');
+		// Create vocabulary for the feeds
+		Vocabulary::create(array('description' => 'Feeds to collect posts from', 'name' => 'feeds'));
 		}
 	}
 
@@ -107,6 +118,7 @@ class FeedReader extends Plugin
 				else {
 					Session::error('RSS Feeds Did Not Successfully Update');
 				}
+				//@todo redirect
 				break;
 			}
 		}
@@ -120,7 +132,38 @@ class FeedReader extends Plugin
 	 */
 	public function updated_config( $ui )
 	{
+		// Save general options
+		// @todo eventually get rid of the stored textmulti when the new FormUI arrives, so we don't store the list twice
 		$ui->save();
+		
+		$vocab = Vocabulary::get('feeds');
+			
+		// Cleanup inactive and unused feed terms
+		$tree = $vocab->get_tree();
+		foreach($tree as $term) {
+			if(!in_array($term->term_display, $ui->feedurl->value)) {
+				// The user removed the feed, deactivate it
+				$term->info->active = false;
+				$term->update();
+			}
+			if(!$term->info->active) {
+				// If this feed is deactivated, check if there are posts associated and if not, remove it
+				$posts = Posts::get(array('vocabulary' => array('all' => array($term)), 'count' => '*'));
+				if(!$posts) {
+					$vocab->delete_term($term);
+				}
+			}
+		}
+		
+		// Process urls and add new terms
+		foreach($ui->feedurl->value as $url) {
+			$term = $vocab->get_term($url);
+			if(!$term) {
+				$term = $vocab->add_term($url);
+			}
+			$term->info->active = true;
+			$term->update();
+		}
 		
 		// Reset the cronjob so that it runs immediately with the change
 		CronTab::delete_cronjob( 'feedlist' );
@@ -133,12 +176,17 @@ class FeedReader extends Plugin
 	 * Plugin load_feeds filter, executes for the cron job defined in action_plugin_activation()
 	 * @param boolean $result The incoming result passed by other sinks for this plugin hook
 	 * @return boolean True if the cron executed successfully, false if not.
-	 */ 	
+	 */
 	public function filter_load_feeds( $result )
 	{
-		$feedurls = Options::get( 'feedlist__feedurl' );
+		$feedterms = Vocabulary::get('feeds')->get_tree();
 
-		foreach( $feedurls as $feed_id => $feed_url ) {
+		foreach( $feedterms as $term ) {
+			if(!$term->info->active) {
+				continue;
+			}
+			
+			$feed_url = $term->term_display;
 			
 			if ( $feed_url == '' ) {
 				EventLog::log( sprintf( _t('Feed ID %1$d has an invalid URL.'), $feed_id ), 'warning', 'feedlist', 'feedlist' );
@@ -162,8 +210,10 @@ class FeedReader extends Plugin
 				Eventlog::log('Skipped rss feed, currently unsupported');
 			}
 			else if ( $dom->getElementsByTagName('feed')->length > 0 ) {
+				$term->info->title = $dom->getElementsByTagName('title')->item(0)->nodeValue;
+				$term->update();
 				$items = $this->parse_atom( $dom );
-				$this->replace( $feed_id, $items );
+				$this->replace( $term, $items );
 			}
 			else {
 				// it's an unsupported format
@@ -178,13 +228,7 @@ class FeedReader extends Plugin
 		
 		// log that we finished
 		EventLog::log( sprintf( _t( 'Finished updating %1$d feed(s).' ), count( $feedurls ) ), 'info', 'feedlist', 'feedlist' );
-		
-		// clean up old feed items
-		$old_date = DB::get_value( 'select updated from {feedlist} order by updated desc limit 10, 1' );
-		DB::query( 'delete from {feedlist} where updated < ?', array( $old_date ) );
-		
-		EventLog::log( sprintf( _t( 'Old feed items purged.') ), 'info', 'feedlist', 'feedlist' );
-		
+				
 		return $result;		// only change a cron result to false when it fails
 		
 	}
@@ -267,7 +311,7 @@ class FeedReader extends Plugin
 	 * @param int $feed_id The feed ID stored in the DB.
 	 * @param array $items Array of items parsed from the feed to add.
 	 */
-	private function replace ( $feed_id, $items ) {	
+	private function replace ( $term, $items ) {	
 		foreach ( $items as $item ) {
 			$post = Post::get(array('all:info' => array('guid' => $item["guid"])));
 			if(!$post) {
@@ -278,10 +322,10 @@ class FeedReader extends Plugin
 			$post->title = $item["title"];
 			$post->content = $item["content"];
 			($post->id) ? $post->update() : $post->insert();
-			$post->info->feed_id = $feed_id;
 			$post->info->guid = $item["guid"];
 			$post->info->link = $item["link"];
 			$result = $post->publish();
+			$term->associate('post', $post->id);
 			$post->updated = HabariDateTime::date_create($item["published"])->int;
 			$post->pubdate = HabariDateTime::date_create($item["published"])->int;
 			$post->update();
@@ -290,6 +334,12 @@ class FeedReader extends Plugin
 				EventLog::log( 'There was an error saving a feed item.', 'err', 'feedlist', 'feedlist' );
 			}
 		}
+	}
+	
+	public function action_plugin_act_feedreader_display_feed($handler)
+	{
+		//@todo add content type here and for 0.10 also presets
+		$handler->theme->act_display(array('user_filters' => array('vocabulary' => array('feeds:term' => array($handler->handler_vars['feed'])), 'nolimit' => 1)));
 	}
 }	
 
