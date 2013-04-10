@@ -212,9 +212,10 @@ class FeedReader extends Plugin
 			@$dom->loadXML( $xml );
 			
 			if ( $dom->getElementsByTagName('rss')->length > 0 ) {
-				//$items = $this->parse_rss( $dom );
-				//$this->replace( $feed_id, $items );
-				Eventlog::log('Skipped rss feed, currently unsupported');
+				$term->info->title = $dom->getElementsByTagName('title')->item(0)->nodeValue;
+				$term->update();
+				$items = $this->parse_rss( $dom );
+				$this->replace( $term, $items );
 			}
 			else if ( $dom->getElementsByTagName('feed')->length > 0 ) {
 				$term->info->title = $dom->getElementsByTagName('title')->item(0)->nodeValue;
@@ -260,7 +261,13 @@ class FeedReader extends Plugin
 			
 			// snag all the child tags we need
 			$feed['title'] = $item->getElementsByTagName('title')->item(0)->nodeValue;
-			//$feed['content'] = $item->getElementsByTagName('content:encoded')->item(0)->nodeValue;
+			if($item->getElementsByTagName('encoded')->length > 0) {
+				// Wordpress-style fulltext content
+				$feed['content'] = $item->getElementsByTagName('encoded')->item(0)->nodeValue;
+			}
+			else {
+				$feed['content'] = $item->getElementsByTagName('description')->item(0)->nodeValue;
+			}
 			$feed['link'] = $item->getElementsByTagName('link')->item(0)->nodeValue;
 			$feed['guid'] = $item->getElementsByTagName('guid')->item(0)->nodeValue;
 			$feed['published'] = $item->getElementsByTagName('pubDate')->item(0)->nodeValue;
