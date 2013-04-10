@@ -338,10 +338,10 @@ class FeedReader extends Plugin
 				$post = new Post();
 				$post->content_type = 1;
 				$post->user_id = 1;
+				$post->status = Post::status('unread');
 			}
 			$post->title = $item["title"];
 			$post->content = $item["content"];
-			$post->status = Post::status('unread');
 			$post->info->guid = $item["guid"];
 			$post->info->link = $item["link"];
 			$post->updated = HabariDateTime::date_create($item["published"])->int;
