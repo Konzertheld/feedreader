@@ -1,7 +1,9 @@
 <?php
 
 /**
- *
+ * FeedReader allows you to use your blog to read your feeds. Your blogflow will be turned into a flow of feed entries. You can use content types to store your content appropriate. Also, feeds can be grouped by type, tag, author or your personal choice.
+  * This plugin contains large code segments from feedlist by Owen Winkler and Chris Meller. Thanks for creating code to access atom feeds.
+  * Most of the Admin UI is from the core menus plugin by Mike Lietz. Thanks for creating a nice interface to manage link structures.
  */
 
 class FeedReader extends Plugin
