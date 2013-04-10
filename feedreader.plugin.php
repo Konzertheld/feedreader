@@ -40,14 +40,17 @@ class FeedReader extends Plugin
 	{
 		// Was this plugin activated?
 		if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) { 
-		// Register a default event log type for this plugin
-		EventLog::register_type( "default", "FeedList" );
-		// Add a periodical execution event to be triggered hourly
-		CronTab::add_hourly_cron( 'feedlist', 'load_feeds', 'Load feeds for feedlist plugin.' );
-		// Log the cron creation event
-		EventLog::log('Added hourly cron for feed updates.');
-		// Create vocabulary for the feeds
-		Vocabulary::create(array('description' => 'Feeds to collect posts from', 'name' => 'feeds'));
+			// Register a default event log type for this plugin
+			EventLog::register_type( "default", "FeedList" );
+			// Add a periodical execution event to be triggered hourly
+			CronTab::add_hourly_cron( 'feedlist', 'load_feeds', 'Load feeds for feedlist plugin.' );
+			// Log the cron creation event
+			EventLog::log('Added hourly cron for feed updates.');
+			// Create vocabulary for the feeds
+			Vocabulary::create(array('description' => 'Feeds to collect posts from', 'name' => 'feeds'));
+			// Add read and unread statuses
+			Post::add_new_status('read');
+			Post::add_new_status('unread');
 		}
 	}
 
@@ -64,6 +67,9 @@ class FeedReader extends Plugin
 			CronTab::delete_cronjob( 'feedlist' );
 			// Log the cron deletion event.
 			EventLog::log('Deleted cron for feed updates.');
+			// Remove statuses
+			Post::delete_post_status('read');
+			Post::delete_post_status('unread');
 		}
 	}
 
@@ -335,14 +341,13 @@ class FeedReader extends Plugin
 			}
 			$post->title = $item["title"];
 			$post->content = $item["content"];
-			($post->id) ? $post->update() : $post->insert();
+			$post->status = Post::status('unread');
 			$post->info->guid = $item["guid"];
 			$post->info->link = $item["link"];
-			$result = $post->publish();
-			$term->associate('post', $post->id);
 			$post->updated = HabariDateTime::date_create($item["published"])->int;
 			$post->pubdate = HabariDateTime::date_create($item["published"])->int;
-			$post->update();
+			$result = ($post->id) ? $post->update() : $post->insert();
+			$term->associate('post', $post->id);
 			
 			if ( !$result ) {
 				EventLog::log( 'There was an error saving a feed item.', 'err', 'feedlist', 'feedlist' );
@@ -355,7 +360,7 @@ class FeedReader extends Plugin
 	 */
 	public function theme_route_display_feedcontent($theme, $params)
 	{
-		$theme->act_display(array('user_filters' => array('vocabulary' => array('feeds:term' => array($params['feedslug'])), 'nolimit' => 1)));
+		$theme->act_display(array('user_filters' => array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => array($params['feedslug'])), 'nolimit' => 1)));
 	}
 }	
 
