@@ -16,16 +16,21 @@ class FeedReader extends Plugin
 	{
 		// Register block template
 		$this->add_template( 'block.feedlist', dirname(__FILE__) . '/block.feedlist.php' );
+		
+		// create the post display rule for one addon
+		$rule = new RewriteRule(array(
+			'name' => "display_feedcontent",
+			// this scary regex...
+			'parse_regex' => "#^(?P<context>group|feed)/(?P<feedslug>[^/]+)/?$#i",
+			// just matches requests that look like this, not regarding the case:
+			'build_str' => '{$context}/{$feedslug}',
+			'handler' => 'PluginHandler',
+			'action' => 'display_feedcontent',
+			'description' => "Display an addon catalog post of a particular type",
+		));
+
+		$this->add_rule($rule, 'display_feedcontent');
 	}
-	
-	/**
-	 * Add a rewrite rule. The schema is http://yourblog.tld/feed/$slug where $slug is the feed's term's slug.
-	 */
-	public function filter_rewrite_rules($rules)
-    {
-		$rules[] = RewriteRule::create_url_rule('"feed"/feed', 'PluginHandler', 'feedreader_display_feed');
-        return $rules;
-    }
 
 	/**
 	 * Plugin plugin_activation action, executed when any plugin is activated
@@ -338,10 +343,12 @@ class FeedReader extends Plugin
 		}
 	}
 	
-	public function action_plugin_act_feedreader_display_feed($handler)
+	/**
+	 * Grab the posts requested by the matched rewrite rule and display them in the theme
+	 */
+	public function theme_route_display_feedcontent($theme, $params)
 	{
-		//@todo add content type here and for 0.10 also presets
-		$handler->theme->act_display(array('user_filters' => array('vocabulary' => array('feeds:term' => array($handler->handler_vars['feed'])), 'nolimit' => 1)));
+		$theme->act_display(array('user_filters' => array('vocabulary' => array('feeds:term' => array($params['feedslug'])), 'nolimit' => 1)));
 	}
 }	
 
