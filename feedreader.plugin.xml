@@ -5,11 +5,13 @@
 	<author url="http://asymptomatic.net/">Owen Winkler</author>
 	<author url="http://chrismeller.com">Chris Meller</author>
 	<author url="http://konzertheld.de">Christian Gredig</author>
-	<version>0.5</version>
+	<version>1.0</version>
 	<guid>008f165d-d89e-4b54-9bb0-73cff499b142</guid>
-	<description><![CDATA[]]></description>
+	<description><![CDATA[FeedReader allows you to use your blog to read your feeds. Your blogflow will be turned into a flow of feed entries. You can use content types to store your content appropriate. Also, feeds can be grouped by type, tag, author or your personal choice.]]></description>
 	<help>
-		<value><![CDATA[In the plugin configuration can be added multiple feeds. ]]></value>
+		<value><![CDATA[
+		
+		]]></value>
 	</help>
 </pluggable>
 
