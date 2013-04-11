@@ -407,10 +407,10 @@ class FeedReader extends Plugin
 					$post->status = Post::status('read');
 				}
 				if($post->update(true)) {
-					echo json_encode(array("status" => Post::status_name($post->status)));
+					echo Post::status_name($post->status);
 				}
 				else {
-					echo json_encode(array("status" => "error"));
+					echo "error";
 				}
 			}
 		//}
