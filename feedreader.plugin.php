@@ -67,7 +67,8 @@ class FeedReader extends Plugin
 			CronTab::delete_cronjob( 'feedlist' );
 			// Log the cron deletion event.
 			EventLog::log('Deleted cron for feed updates.');
-			// Remove statuses
+			// Remove statuses and vocabulary
+			Vocabulary::get('feeds')->delete();
 			Post::delete_post_status('read');
 			Post::delete_post_status('unread');
 		}
@@ -150,7 +151,6 @@ class FeedReader extends Plugin
 		$ui->save();
 		
 		$vocab = Vocabulary::get('feeds');
-		$menu = Vocabulary::get('FeedReader');
 			
 		// Cleanup inactive and unused feed terms
 		$tree = $vocab->get_tree();
@@ -171,19 +171,11 @@ class FeedReader extends Plugin
 		
 		// Process urls and add new terms
 		foreach($ui->feedurl->value as $url) {
+			$url = (substr($url, -1) == '/') ? substr($url, 0, -1) : $url;
 			$term = $vocab->get_term($url);
-			$menuterm = $menu->get_term($url);
 			if(!$term) {
 				$term = $vocab->add_term($url);
 			}
-			if(!$menuterm) {
-				$menuterm = $menu->add_term($url);
-			}
-			$menuterm->info->url = URL::get('display_feedcontent', array("context" => "feed", "feedslug" => $term->term));
-			$menuterm->info->menu = $menu->id;
-			$menuterm->info->type = "link";
-			$menuterm->update();
-			$menuterm->associate('menu_link', 0);
 			$term->info->active = true;
 			$term->update();
 		}
@@ -244,10 +236,16 @@ class FeedReader extends Plugin
 			$term->info->title = $dom->getElementsByTagName('title')->item(0)->nodeValue;
 			$term->update();
 			$this->replace( $term, $items );
-			// This is a dangerous assumption
+			// Add or update menu link
 			$menuterm = $menu->get_term($term->term);
-			$menuterm->term_display = $term->info->title;
+			if(!$menuterm) {
+				$menuterm = $menu->add_term(new Term(array('term' => $term->term, 'term_display' => $term->info->title)));
+			}
+			$menuterm->info->url = URL::get('display_feedcontent', array("context" => "feed", "feedslug" => $term->term));
+			$menuterm->info->menu = $menu->id;
+			$menuterm->info->type = "link";
 			$menuterm->update();
+			$menuterm->associate('menu_link', 0);
 			
 			// log that the feed was updated
 			EventLog::log( sprintf( _t( 'Updated feed %1$s' ), $feed_url ), 'info', 'feedlist', 'feedlist' );
@@ -255,7 +253,7 @@ class FeedReader extends Plugin
 		}
 		
 		// log that we finished
-		EventLog::log( sprintf( _t( 'Finished updating %1$d feed(s).' ), count( $feedurls ) ), 'info', 'feedlist', 'feedlist' );
+		EventLog::log( sprintf( _t( 'Finished updating %1$d feed(s).' ), count( $feedterms ) ), 'info');
 				
 		return $result;		// only change a cron result to false when it fails
 		
