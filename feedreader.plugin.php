@@ -150,6 +150,7 @@ class FeedReader extends Plugin
 		$ui->save();
 		
 		$vocab = Vocabulary::get('feeds');
+		$menu = Vocabulary::get('FeedReader');
 			
 		// Cleanup inactive and unused feed terms
 		$tree = $vocab->get_tree();
@@ -171,9 +172,18 @@ class FeedReader extends Plugin
 		// Process urls and add new terms
 		foreach($ui->feedurl->value as $url) {
 			$term = $vocab->get_term($url);
+			$menuterm = $menu->get_term($url);
 			if(!$term) {
 				$term = $vocab->add_term($url);
 			}
+			if(!$menuterm) {
+				$menuterm = $menu->add_term($url);
+			}
+			$menuterm->info->url = URL::get('display_feedcontent', array("context" => "feed", "feedslug" => $term->term));
+			$menuterm->info->menu = $menu->id;
+			$menuterm->info->type = "link";
+			$menuterm->update();
+			$menuterm->associate('menu_link', 0);
 			$term->info->active = true;
 			$term->update();
 		}
@@ -193,6 +203,7 @@ class FeedReader extends Plugin
 	public function filter_load_feeds( $result )
 	{
 		$feedterms = Vocabulary::get('feeds')->get_tree();
+		$menu = Vocabulary::get('FeedReader');
 
 		foreach( $feedterms as $term ) {
 			if(!$term->info->active) {
@@ -218,22 +229,25 @@ class FeedReader extends Plugin
 			@$dom->loadXML( $xml );
 			
 			if ( $dom->getElementsByTagName('rss')->length > 0 ) {
-				$term->info->title = $dom->getElementsByTagName('title')->item(0)->nodeValue;
-				$term->update();
 				$items = $this->parse_rss( $dom );
-				$this->replace( $term, $items );
 			}
 			else if ( $dom->getElementsByTagName('feed')->length > 0 ) {
-				$term->info->title = $dom->getElementsByTagName('title')->item(0)->nodeValue;
-				$term->update();
 				$items = $this->parse_atom( $dom );
-				$this->replace( $term, $items );
 			}
 			else {
 				// it's an unsupported format
 				EventLog::log( sprintf( _t('Feed %1$s is an unsupported format.'), $feed_url), 'err', 'feedlist', 'feedlist' );
 				continue;
 			}
+			
+			// At least now we got a human-readable feed title, save it
+			$term->info->title = $dom->getElementsByTagName('title')->item(0)->nodeValue;
+			$term->update();
+			$this->replace( $term, $items );
+			// This is a dangerous assumption
+			$menuterm = $menu->get_term($term->term);
+			$menuterm->term_display = $term->info->title;
+			$menuterm->update();
 			
 			// log that the feed was updated
 			EventLog::log( sprintf( _t( 'Updated feed %1$s' ), $feed_url ), 'info', 'feedlist', 'feedlist' );
