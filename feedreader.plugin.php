@@ -362,6 +362,45 @@ class FeedReader extends Plugin
 	{
 		$theme->act_display(array('user_filters' => array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => array($params['feedslug'])), 'nolimit' => 1)));
 	}
+	
+	/**
+	 * Provide a JS-clickable img in $post->toggle_status_link
+	 */
+	public function filter_post_toggle_status_link($toggle_status_link, $post)
+	{
+		$class = ($post->status == Post::status('read')) ? "read" : "unread";
+		return "<a id='toggle-$post->id' onclick='FeedReader.toggle($post->id);' class='$class'><img src='" . $this->get_url("/$class.png") . "' id='statusimg-$post->id' alt='$class' title='$class' class='statusimg'></a>";
+	}
+	
+	/**
+	 * Check if an article is read when requested via JS and invert it's read status
+	 * This is an AJAX callback that should be linked to the above img
+	 **/
+	public function action_auth_ajax_toggle_readstatus($handler)
+	{
+		$user = User::identify();
+		//if($user->can('feature_content')) {
+			// Get the data that was sent
+			$id = $handler->handler_vars[ 'q' ];
+			// Do actual work
+			if(is_numeric($id))
+			{
+				$post = Post::get(array('id' => $id));
+				if($post->status == Post::status('read')) {
+					$post->status = Post::status('unread');
+				}
+				else {
+					$post->status = Post::status('read');
+				}
+				if($post->update(true)) {
+					echo json_encode(array("status" => Post::status_name($post->status)));
+				}
+				else {
+					echo json_encode(array("status" => "error"));
+				}
+			}
+		//}
+	}
 }	
 
 ?>
