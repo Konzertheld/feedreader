@@ -382,6 +382,7 @@ class FeedReader extends Plugin
 			else {
 				$feed['content'] = $item->getElementsByTagName('description')->item(0)->nodeValue;
 			}
+			$feed['author'] = $item->getElementsByTagName('author')->item(0)->nodeValue;
 			$feed['link'] = $item->getElementsByTagName('link')->item(0)->nodeValue;
 			$feed['guid'] = $item->getElementsByTagName('guid')->item(0)->nodeValue;
 			$feed['published'] = $item->getElementsByTagName('pubDate')->item(0)->nodeValue;
@@ -417,6 +418,7 @@ class FeedReader extends Plugin
 			
 			// snag all the child tags we need
 			$feed['title'] = $item->getElementsByTagName('title')->item(0)->nodeValue;
+			$feed['author'] = $item->getElementsByTagName('author')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
 			$feed['content'] = $item->getElementsByTagName('content')->item(0)->nodeValue;
 			$feed['link'] = $item->getElementsByTagName('link')->item(0)->getAttribute('href');
 			$feed['guid'] = $item->getElementsByTagName('id')->item(0)->nodeValue;
@@ -462,6 +464,7 @@ class FeedReader extends Plugin
 			$post->content = $item["content"];
 			$post->info->guid = $item["guid"];
 			$post->info->link = $item["link"];
+			$post->info->author = $item["author"];
 			$post->updated = HabariDateTime::date_create($item["published"])->int;
 			$post->pubdate = HabariDateTime::date_create($item["published"])->int;
 			$result = ($post->id) ? $post->update() : $post->insert();
