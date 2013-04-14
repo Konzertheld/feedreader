@@ -13,9 +13,6 @@
 		
 		]]></value>
 	</help>
-	<requires>
-		<feature url="http://wiki.habariproject.org/en/feature/menu">menu</feature>
-	</requires>
 </pluggable>
 
  

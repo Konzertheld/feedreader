@@ -15,7 +15,7 @@ class FeedReader extends Plugin
 	public function action_init()
 	{
 		// Register block template
-		// $this->add_template( 'block.feedlist', dirname(__FILE__) . '/block.feedlist.php' );
+		$this->add_template( 'block.readernav', dirname(__FILE__) . '/block.readernav.php' );
 		
 		// create the post display rule for one addon
 		$rule = new RewriteRule(array(
@@ -73,6 +73,59 @@ class FeedReader extends Plugin
 			Post::delete_post_status('unread');
 		}
 	}
+	
+	/**
+	 * Make block available
+	 */
+	public function filter_block_list( $blocklist )
+	{
+		$blocklist[ 'readernav' ] = _t( 'FeedReader navigation' );
+		return $blocklist;
+	}
+	
+	/**
+	 * Add block config
+	 */
+	public function action_block_form_readernav( $form, $block )
+	{
+		$form->append( 'checkbox', 'hide_subitems', $block, _t( 'Hide grouped subfeeds:', __CLASS__ ) );
+	}
+	
+	/**
+	 * Collect feeds and create a navigation
+	 */
+	public function action_block_content_readernav( $block )
+	{
+		$nav = array();
+
+		foreach(Vocabulary::get('feeds')->get_root_terms() as $term) {
+			if(count($term->descendants()) > 0) {
+				// Group
+				$group = array();
+				$group['url'] = URL::get('display_feedcontent', array('context' => 'group', 'feedslug' => $term->term));
+				$group['title'] = $term->term_display;
+				if(!$block->hide_subitems) {
+					$group['subitems'] = array();
+					foreach($term->descendants() as $d) {
+						$group['subitems'][] = $this->term_to_menu($d);
+					}
+				}
+				$nav[] = $group;
+			}
+			else {
+				$nav[] = $this->term_to_menu($term);
+			}
+		}
+		$block->navigation = $nav;
+	}
+	
+	private function term_to_menu($term)
+	{
+		$entry = array();
+		$entry['url'] = URL::get('display_feedcontent', array('context' => 'feed', 'feedslug' => $term->term));
+		$entry['title'] = ($term->info->title) ? $term->info->title : $term->term_display;
+		return $entry;
+	}
 
 	/**
 	 * Executes when the admin plugins page wants to know if plugins have configuration links to display.
@@ -108,8 +161,6 @@ class FeedReader extends Plugin
 			// For the action 'configure':
 			case 'configure':
 				$ui = new FormUI( __CLASS__ );
-				// Add a text control for the number of feed items shown
-				$itemcount = $ui->append('text', 'itemcount', 'feedlist__itemcount', 'Number of shown Feed Items');
 				// Add a text control for the feed URL
 				$feedlist = $ui->append('textarea', 'feedlist', __CLASS__ . '__feeds', 'Feed URL');
 				// Mark the field as required
@@ -426,17 +477,22 @@ class FeedReader extends Plugin
 	 */
 	public function theme_route_display_feedcontent($theme, $params)
 	{
-		if($params['context'] == 'feed') {
-			$termlist = array($params['feedslug']);
-		}
-		elseif($params['context'] == 'group') {
-			$termlist = array();
-			foreach(Vocabulary::get('feeds')->get_term($params['feedslug'])->descendants() as $d) {
-				$termlist[] = $d->term;
+		$term = Vocabulary::get('feeds')->get_term($params['feedslug']);
+		if($term) {
+			if($params['context'] == 'feed') {
+				
+				$termlist = array($params['feedslug']);
 			}
+			elseif($params['context'] == 'group') {
+				$termlist = array();
+				foreach($term->descendants() as $d) {
+					$termlist[] = $d->term;
+				}
+			}
+			else return;
+			$theme->act_display(array('user_filters' => array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist), 'nolimit' => 1)));
 		}
-		else return;
-		$theme->act_display(array('user_filters' => array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist), 'nolimit' => 1)));
+		else $theme->act_display_404();
 	}
 	
 	/**
