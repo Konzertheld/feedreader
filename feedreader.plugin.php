@@ -15,7 +15,7 @@ class FeedReader extends Plugin
 	public function action_init()
 	{
 		// Register block template
-		$this->add_template( 'block.feedlist', dirname(__FILE__) . '/block.feedlist.php' );
+		// $this->add_template( 'block.feedlist', dirname(__FILE__) . '/block.feedlist.php' );
 		
 		// create the post display rule for one addon
 		$rule = new RewriteRule(array(
@@ -41,9 +41,9 @@ class FeedReader extends Plugin
 		// Was this plugin activated?
 		if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) { 
 			// Register a default event log type for this plugin
-			EventLog::register_type( "default", "FeedList" );
+			// EventLog::register_type( "default", "FeedList" );
 			// Add a periodical execution event to be triggered hourly
-			CronTab::add_hourly_cron( 'feedlist', 'load_feeds', 'Load feeds for feedlist plugin.' );
+			CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
 			// Log the cron creation event
 			EventLog::log('Added hourly cron for feed updates.');
 			// Create vocabulary for the feeds
@@ -107,8 +107,7 @@ class FeedReader extends Plugin
 			switch($action) {
 			// For the action 'configure':
 			case 'configure':
-				// Create a new Form called 'feedlist'
-				$ui = new FormUI( 'feedlist' );
+				$ui = new FormUI( __CLASS__ );
 				// Add a text control for the number of feed items shown
 				$itemcount = $ui->append('text', 'itemcount', 'feedlist__itemcount', 'Number of shown Feed Items');
 				// Add a text control for the feed URL
@@ -176,23 +175,27 @@ class FeedReader extends Plugin
 		$vocab = Vocabulary::get('feeds');
 			
 		// Cleanup inactive and unused feed terms
-		$tree = $vocab->get_tree();
-		foreach($tree as $term) {
-			if(!in_array($term->term_display, $feeds)) {
+		// $tree = $vocab->get_tree();
+		// foreach($tree as $term) {
+			// if(!in_array($term->term_display, $feeds)) {
 				// The user removed the feed, deactivate it
-				$term->info->active = false;
-				$term->update();
-			}
-			if(!$term->info->active) {
+				// $term->info->active = false;
+				// $term->update();
+			// }
+			// if(!$term->info->active) {
 				// If this feed is deactivated, check if there are posts associated and if not, remove it
-				$posts = Posts::get(array('vocabulary' => array('all' => array($term)), 'count' => '*'));
-				if(!$posts) {
-					$vocab->delete_term($term);
-				}
-			}
-		}
+				// $posts = Posts::get(array('vocabulary' => array('all' => array($term)), 'count' => '*'));
+				// if(!$posts) {
+					// $vocab->delete_term($term);
+				// }
+			// }
+		// }
 		
 		// Process urls and add new terms
+		$roots = 0;
+		$groups = 0;
+		$feeds = 0;
+		
 		foreach($groupedfeeds as $title => $group) {
 			
 			if(count($group) == 1) {
@@ -203,12 +206,14 @@ class FeedReader extends Plugin
 				}
 				$term->info->active = true;
 				$term->update();
+				$roots++;
 			}
 			elseif(count($group) > 1) {
 				$term = $vocab->get_term(Utils::slugify($title));
 				if(!$term) {
 					$term = $vocab->add_term(new Term(array('term' => Utils::slugify($title), 'term_display' => $title)));
 				}
+				$groups++;
 				foreach($group as $url) {
 					$urlterm = $vocab->get_term(Utils::slugify($url));
 					if(!$urlterm) {
@@ -216,13 +221,16 @@ class FeedReader extends Plugin
 					}
 					$urlterm->info->active = true;
 					$urlterm->update();
+					$feeds++;
 				}
 			}
 		}
+		
+		Eventlog::log('Updated feeds from config. %1$d feeds in %2$d groups and %3$d ungrouped feeds.', array($feeds, $groups, $roots), __CLASS__);
 
 		// Reset the cronjob so that it runs immediately with the change
-		CronTab::delete_cronjob( 'feedlist' );
-		CronTab::add_hourly_cron( 'feedlist', 'load_feeds', 'Load feeds for feedlist plugin.' );
+		CronTab::delete_cronjob( 'feedreader' );
+		CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
 
 		return false;
 	} 
@@ -236,29 +244,32 @@ class FeedReader extends Plugin
 	{
 		$feedterms = Vocabulary::get('feeds')->get_tree();
 		$menu = Vocabulary::get('FeedReader');
+		Eventlog::log("Updating feeds...");
 
 		foreach( $feedterms as $term ) {
 			if(count($term->descendants()) > 0) {
 				// Just a group term
-				Eventlog::log("Skipped " . $term->term);
+				Eventlog::log("Skipped root group " . $term->term_display);
 				continue;
 			}
 			if(!$term->info->active) {
+				Eventlog::log("Skipped inactive feed " . $term->term_display);
 				continue;
 			}
 			
 			$feed_url = $term->term_display;
 			
 			if ( $feed_url == '' ) {
-				EventLog::log( sprintf( _t('Feed ID %1$d has an invalid URL.'), $feed_id ), 'warning', 'feedlist', 'feedlist' );
+				EventLog::log( sprintf( _t('Feed ID %1$d has an invalid URL.'), $feed_id ), 'warning' );
 				continue;
 			}
 			
 			// load the XML data
+			Eventlog::log($feed_url);
 			$xml = RemoteRequest::get_contents( $feed_url );
-			
+			Eventlog::log("loaded " . $feed_url);
 			if ( !$xml ) {
-				EventLog::log( sprintf( _t('Unable to fetch feed %1$s data.'), $feed_url ), 'err', 'feedlist', 'feedlist' );
+				EventLog::log( sprintf( _t('Unable to fetch feed %1$s data.'), $feed_url ), 'err' );
 			}
 			
 			$dom = new DOMDocument();
@@ -273,7 +284,7 @@ class FeedReader extends Plugin
 			}
 			else {
 				// it's an unsupported format
-				EventLog::log( sprintf( _t('Feed %1$s is an unsupported format.'), $feed_url), 'err', 'feedlist', 'feedlist' );
+				EventLog::log( sprintf( _t('Feed %1$s is an unsupported format.'), $feed_url), 'err' );
 				continue;
 			}
 			
@@ -283,7 +294,7 @@ class FeedReader extends Plugin
 			$this->replace( $term, $items );
 			
 			// log that the feed was updated
-			EventLog::log( sprintf( _t( 'Updated feed %1$s' ), $feed_url ), 'info', 'feedlist', 'feedlist' );
+			EventLog::log( sprintf( _t( 'Updated feed %1$s' ), $feed_url ), 'info' );
 		}
 		
 		// log that we finished
@@ -378,6 +389,16 @@ class FeedReader extends Plugin
 	 */
 	private function replace ( $term, $items ) {	
 		foreach ( $items as $item ) {
+			// Sanity checks
+			if(empty($item["content"])) {
+				Eventlog::log( _t("Skipping item %s because it has no content.", array($term->term), __CLASS__), 'err' );
+				continue;
+			}
+			if(empty($item["guid"])) {
+				Eventlog::log( _t("Skipping item %s because it has no GUID.", array($term->term), __CLASS__), 'err' );
+				continue;
+			}
+			
 			$post = Post::get(array('all:info' => array('guid' => $item["guid"])));
 			if(!$post) {
 				$post = new Post();
@@ -385,7 +406,7 @@ class FeedReader extends Plugin
 				$post->user_id = 1;
 				$post->status = Post::status('unread');
 			}
-			$post->title = $item["title"];
+			$post->title = (!empty($item["title"])) ? $item["title"] : _t("Untitled", __CLASS__);
 			$post->content = $item["content"];
 			$post->info->guid = $item["guid"];
 			$post->info->link = $item["link"];
@@ -395,7 +416,7 @@ class FeedReader extends Plugin
 			$term->associate('post', $post->id);
 			
 			if ( !$result ) {
-				EventLog::log( 'There was an error saving a feed item.', 'err', 'feedlist', 'feedlist' );
+				EventLog::log( 'There was an error saving a feed item.', 'err' );
 			}
 		}
 	}
