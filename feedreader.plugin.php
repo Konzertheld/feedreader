@@ -47,7 +47,7 @@ class FeedReader extends Plugin
 			// Log the cron creation event
 			EventLog::log('Added hourly cron for feed updates.');
 			// Create vocabulary for the feeds
-			Vocabulary::create(array('description' => 'Feeds to collect posts from', 'name' => 'feeds'));
+			Vocabulary::create(array('description' => 'Feeds to collect posts from', 'name' => 'feeds', 'features' => array('hierarchical')));
 			// Add read and unread statuses
 			Post::add_new_status('read');
 			Post::add_new_status('unread');
@@ -112,11 +112,9 @@ class FeedReader extends Plugin
 				// Add a text control for the number of feed items shown
 				$itemcount = $ui->append('text', 'itemcount', 'feedlist__itemcount', 'Number of shown Feed Items');
 				// Add a text control for the feed URL
-				$feedurl = $ui->append('textmulti', 'feedurl', 'feedlist__feedurl', 'Feed URL');
+				$feedlist = $ui->append('textarea', 'feedlist', __CLASS__ . '__feeds', 'Feed URL');
 				// Mark the field as required
-				$feedurl->add_validator( 'validate_required' );
-				// Mark the field as requiring a valid URL
-//				$feedurl->add_validator( 'validate_url' );
+				$feedlist->add_validator( 'validate_required' );
 				// When the form is successfully completed, call $this->updated_config()
 				$ui->on_success( array( $this, 'updated_config') );
 				$ui->set_option( 'success_message', _t( 'Configuration updated' ) );
@@ -127,10 +125,10 @@ class FeedReader extends Plugin
 			case 'update':
 				$result = $this->filter_load_feeds(true);
 				if($result) {
-					Session::notice('RSS Feeds Successfully Updated');
+					Session::notice('Feeds Successfully Updated');
 				}
 				else {
-					Session::error('RSS Feeds Did Not Successfully Update');
+					Session::error('Feeds Did Not Successfully Update');
 				}
 				//@todo redirect
 				break;
@@ -146,16 +144,41 @@ class FeedReader extends Plugin
 	 */
 	public function updated_config( $ui )
 	{
-		// Save general options
-		// @todo eventually get rid of the stored textmulti when the new FormUI arrives, so we don't store the list twice
+		// Save general options and sorted feedlist
+		$feedlist = explode( "\n", $ui->feedlist->value );
+		// Make sure no url ends with a slash (for unifying and to avoid duplicates)
+		array_walk($feedlist, create_function('&$url', '$url = (substr($url, -1) == "/") ? substr($url, 0, -1) : $url;'));
+		$feedlist = array_unique($feedlist);
+		natsort( $feedlist );
+		// Dirty hack that will be removed when the new FormUI arrives
+		$_POST[$ui->feedlist->field] =  implode( "\n", $feedlist );
 		$ui->save();
+		
+		// Get feeds
+		$groupedfeeds = array();
+		$feeds = array();
+		foreach($feedlist as $f) {
+			if(strpos($f, '=')) {
+				list($title, $urlstring) = explode('=', $f);
+				$urls = explode(';', $urlstring);
+			}
+			else {
+				$urls = explode(';', $f);
+				$title = $urls[0];
+			}
+			if(empty($title)) continue;
+			$groupedfeeds[$title] = $urls;
+			$feeds = array_merge($feeds, $urls);
+		}
+		
+		$feeds = array_unique($feeds);
 		
 		$vocab = Vocabulary::get('feeds');
 			
 		// Cleanup inactive and unused feed terms
 		$tree = $vocab->get_tree();
 		foreach($tree as $term) {
-			if(!in_array($term->term_display, $ui->feedurl->value)) {
+			if(!in_array($term->term_display, $feeds)) {
 				// The user removed the feed, deactivate it
 				$term->info->active = false;
 				$term->update();
@@ -170,16 +193,32 @@ class FeedReader extends Plugin
 		}
 		
 		// Process urls and add new terms
-		foreach($ui->feedurl->value as $url) {
-			$url = (substr($url, -1) == '/') ? substr($url, 0, -1) : $url;
-			$term = $vocab->get_term($url);
-			if(!$term) {
-				$term = $vocab->add_term($url);
+		foreach($groupedfeeds as $title => $group) {
+			
+			if(count($group) == 1) {
+				$term = $vocab->get_term($group[0]);
+				if(!$term) {
+					$term = $vocab->add_term($group[0]);
+				}
+				$term->info->active = true;
+				$term->update();
 			}
-			$term->info->active = true;
-			$term->update();
+			elseif(count($group) > 1) {
+				$term = $vocab->get_term($title);
+				if(!$term) {
+					$term = $vocab->add_term($title);
+				}
+				foreach($group as $url) {
+					$urlterm = $vocab->get_term($url);
+					if(!$urlterm) {
+						$urlterm = $vocab->add_term($url, $term);
+					}
+					$urlterm->info->active = true;
+					$urlterm->update();
+				}
+			}
 		}
-		
+
 		// Reset the cronjob so that it runs immediately with the change
 		CronTab::delete_cronjob( 'feedlist' );
 		CronTab::add_hourly_cron( 'feedlist', 'load_feeds', 'Load feeds for feedlist plugin.' );
@@ -198,6 +237,10 @@ class FeedReader extends Plugin
 		$menu = Vocabulary::get('FeedReader');
 
 		foreach( $feedterms as $term ) {
+			if(count($term->descendants()) > 0) {
+				// Just a group term
+				continue;
+			}
 			if(!$term->info->active) {
 				continue;
 			}
@@ -236,27 +279,15 @@ class FeedReader extends Plugin
 			$term->info->title = $dom->getElementsByTagName('title')->item(0)->nodeValue;
 			$term->update();
 			$this->replace( $term, $items );
-			// Add or update menu link
-			$menuterm = $menu->get_term($term->term);
-			if(!$menuterm) {
-				$menuterm = $menu->add_term(new Term(array('term' => $term->term, 'term_display' => $term->info->title)));
-			}
-			$menuterm->info->url = URL::get('display_feedcontent', array("context" => "feed", "feedslug" => $term->term));
-			$menuterm->info->menu = $menu->id;
-			$menuterm->info->type = "link";
-			$menuterm->update();
-			$menuterm->associate('menu_link', 0);
 			
 			// log that the feed was updated
 			EventLog::log( sprintf( _t( 'Updated feed %1$s' ), $feed_url ), 'info', 'feedlist', 'feedlist' );
-			
 		}
 		
 		// log that we finished
 		EventLog::log( sprintf( _t( 'Finished updating %1$d feed(s).' ), count( $feedterms ) ), 'info');
 				
 		return $result;		// only change a cron result to false when it fails
-		
 	}
 	
 	/**
@@ -372,7 +403,17 @@ class FeedReader extends Plugin
 	 */
 	public function theme_route_display_feedcontent($theme, $params)
 	{
-		$theme->act_display(array('user_filters' => array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => array($params['feedslug'])), 'nolimit' => 1)));
+		if($params['context'] == 'feed') {
+			$termlist = array($params['feedslug']);
+		}
+		elseif($params['context'] == 'group') {
+			$termlist = array();
+			foreach(Vocabulary::get('feeds')->get_term($params['feedslug'])->descendants() as $d) {
+				$termlist[] = $d->term;
+			}
+		}
+		else return;
+		$theme->act_display(array('user_filters' => array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist), 'nolimit' => 1)));
 	}
 	
 	/**
