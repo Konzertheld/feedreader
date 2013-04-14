@@ -100,10 +100,10 @@ class FeedReader extends Plugin
 
 		foreach(Vocabulary::get('feeds')->get_root_terms() as $term) {
 			if(count($term->descendants()) > 0) {
-				// Group
 				$group = array();
 				$group['url'] = URL::get('display_feedcontent', array('context' => 'group', 'feedslug' => $term->term));
 				$group['title'] = $term->term_display;
+				$group['count'] = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => $term->descendants())));
 				if(!$block->hide_subitems) {
 					$group['subitems'] = array();
 					foreach($term->descendants() as $d) {
@@ -124,6 +124,7 @@ class FeedReader extends Plugin
 		$entry = array();
 		$entry['url'] = URL::get('display_feedcontent', array('context' => 'feed', 'feedslug' => $term->term));
 		$entry['title'] = ($term->info->title) ? $term->info->title : $term->term_display;
+		$entry['count'] = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => array($term))));
 		return $entry;
 	}
 
