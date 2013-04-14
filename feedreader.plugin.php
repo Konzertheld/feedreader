@@ -40,17 +40,7 @@ class FeedReader extends Plugin
 	{
 		// Was this plugin activated?
 		if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) { 
-			// Register a default event log type for this plugin
-			// EventLog::register_type( "default", "FeedList" );
-			// Add a periodical execution event to be triggered hourly
-			CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
-			// Log the cron creation event
-			EventLog::log('Added hourly cron for feed updates.');
-			// Create vocabulary for the feeds
-			Vocabulary::create(array('description' => 'Feeds to collect posts from', 'name' => 'feeds', 'features' => array('hierarchical')));
-			// Add read and unread statuses
-			Post::add_new_status('read');
-			Post::add_new_status('unread');
+			$this->install();
 		}
 	}
 
@@ -63,15 +53,33 @@ class FeedReader extends Plugin
 	{
 		// Was this plugin deactivated?
 		if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) {
-			// Remove the periodical execution event
-			CronTab::delete_cronjob( 'feedlist' );
-			// Log the cron deletion event.
-			EventLog::log('Deleted cron for feed updates.');
-			// Remove statuses and vocabulary
-			Vocabulary::get('feeds')->delete();
-			Post::delete_post_status('read');
-			Post::delete_post_status('unread');
+			$this->uninstall();
 		}
+	}
+	
+	private function install()
+	{
+		// Add a periodical execution event to be triggered hourly
+		CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
+		// Log the cron creation event
+		EventLog::log('Added hourly cron for feed updates.');
+		// Create vocabulary for the feeds
+		Vocabulary::create(array('description' => 'Feeds to collect posts from', 'name' => 'feeds', 'features' => array('hierarchical')));
+		// Add read and unread statuses
+		Post::add_new_status('read');
+		Post::add_new_status('unread');
+	}
+	
+	private function uninstall()
+	{
+		// Remove the periodical execution event
+		CronTab::delete_cronjob( 'feedlist' );
+		// Log the cron deletion event.
+		EventLog::log('Deleted cron for feed updates.');
+		// Remove statuses and vocabulary
+		if(Vocabulary::exists('feeds')) Vocabulary::get('feeds')->delete();
+		Post::delete_post_status('read');
+		Post::delete_post_status('unread');
 	}
 	
 	/**
@@ -142,6 +150,8 @@ class FeedReader extends Plugin
 			// Add a 'configure' action in the admin's list of plugins
 			$actions['configure']= _t('Configure');
 			$actions['update'] = _t('Update All Now');
+			$actions['import'] = _t('Import OPML file');
+			$actions['reinstall'] = _t('Re-install (DANGEROUS)');
 		}
 		return $actions;
 	}
@@ -182,6 +192,20 @@ class FeedReader extends Plugin
 					Session::error('Feeds Did Not Successfully Update');
 				}
 				//@todo redirect
+				break;
+			case 'import':
+				$ui = new FormUI( __CLASS__ );
+				$ui->append('file', 'import', 'null', "Choose subscription list file");
+				$ui->on_success( array( $this, 'do_import') );
+				$ui->append( 'submit', 'save', _t( 'Save' ) );
+				$ui->out();
+				break;
+			case "reinstall":
+				$this->uninstall();
+				$posts = Posts::get(array("status" => "any", "nolimit" => 1));
+				if(!empty($posts)) $posts->delete();
+				$this->install();
+				Eventlog::log("Deleted all posts and feed terms");
 				break;
 			}
 		}
@@ -249,7 +273,6 @@ class FeedReader extends Plugin
 		$feeds = 0;
 		
 		foreach($groupedfeeds as $title => $group) {
-			
 			if(count($group) == 1) {
 				// ungrouped feed
 				$term = $vocab->get_term(Utils::slugify($group[0]));
@@ -285,7 +308,50 @@ class FeedReader extends Plugin
 		CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
 
 		return false;
-	} 
+	}
+	
+	/**
+	 * Handle the submitted import form aka do the import
+	 */
+	public function do_import($ui)
+	{
+		$xmlstring = file_get_contents($ui->import->tmp_file);
+		$xml = new SimpleXMLElement($xmlstring);
+		$vocab = Vocabulary::get('feeds');
+		$feeds = 0;
+		$groups = 0;
+		foreach($xml->body->outline as $o) {
+			if(count($o->outline)) {
+				// This is a group
+				$term = $vocab->get_term(Utils::slugify($o['title']));
+				if(!$term) {
+					$term = $vocab->add_term(new Term(array('term' => Utils::slugify($o['title']), 'term_display' => $o['title'])));
+				}
+				$groups++;
+				foreach($o->outline as $feed) {
+					$urlterm = $vocab->get_term(Utils::slugify($feed['xmlUrl']));
+					if(!$urlterm) {
+						$urlterm = $vocab->add_term(new Term(array('term' => Utils::slugify($feed['xmlUrl']), 'term_display' => $feed['xmlUrl'])), $term);
+					}
+					$urlterm->info->active = true;
+					$urlterm->info->title = (string) $feed['title'];
+					$urlterm->update();
+					$feeds++;
+				}
+			}
+			else {
+				$urlterm = $vocab->get_term(Utils::slugify($o['xmlUrl']));
+				if(!$urlterm) {
+					$urlterm = $vocab->add_term(new Term(array('term' => Utils::slugify($o['xmlUrl']), 'term_display' => $o['xmlUrl'])));
+				}
+				$urlterm->info->active = true;
+				$urlterm->info->title = (string) $o['title'];
+				$urlterm->update();
+				$feeds++;
+			}
+		}
+		Session::notice(_t('Imported %1$d feeds and %2$d groups', array($feeds, $groups), __CLASS__));
+	}
 
 	/**
 	 * Plugin load_feeds filter, executes for the cron job defined in action_plugin_activation()
@@ -316,12 +382,18 @@ class FeedReader extends Plugin
 				continue;
 			}
 			
+			if(isset($term->info->lastcheck) && HabariDateTime::date_create()->int - HabariDateTime::date_create($term->info->lastcheck)->int < 600) {
+				// Don't check more than every 10 minutes
+				continue;
+			}
+			
 			// load the XML data
-			Eventlog::log($feed_url);
 			$xml = RemoteRequest::get_contents( $feed_url );
-			Eventlog::log("loaded " . $feed_url);
 			if ( !$xml ) {
-				EventLog::log( sprintf( _t('Unable to fetch feed %1$s data.'), $feed_url ), 'err' );
+				EventLog::log( sprintf( _t('Unable to fetch feed %1$s data.'), $feed_url ), 'warning' );
+				$term->info->broken = true;
+				$term->update();
+				continue;
 			}
 			
 			$dom = new DOMDocument();
@@ -336,7 +408,9 @@ class FeedReader extends Plugin
 			}
 			else {
 				// it's an unsupported format
-				EventLog::log( sprintf( _t('Feed %1$s is an unsupported format.'), $feed_url), 'err' );
+				EventLog::log( sprintf( _t('Feed %1$s is an unsupported format and has been deactivated.'), $feed_url), 'warning' );
+				$term->info->active = false;
+				$term->update();
 				continue;
 			}
 			
@@ -344,10 +418,14 @@ class FeedReader extends Plugin
 			$term->info->title = $dom->getElementsByTagName('title')->item(0)->nodeValue;
 			$term->update();
 			$this->replace( $term, $items );
+			$term->info->lastcheck = HabariDateTime::date_create()->int;
+			$term->update();
 			
 			// log that the feed was updated
 			EventLog::log( sprintf( _t( 'Updated feed %1$s' ), $feed_url ), 'info' );
 		}
+		
+		// Check if there are still feeds 
 		
 		// log that we finished
 		EventLog::log( sprintf( _t( 'Finished updating %1$d feed(s).' ), count( $feedterms ) ), 'info');
@@ -382,13 +460,36 @@ class FeedReader extends Plugin
 			else {
 				$feed['content'] = $item->getElementsByTagName('description')->item(0)->nodeValue;
 			}
-			$feed['author'] = $item->getElementsByTagName('author')->item(0)->nodeValue;
-			$feed['link'] = $item->getElementsByTagName('link')->item(0)->nodeValue;
-			$feed['guid'] = $item->getElementsByTagName('guid')->item(0)->nodeValue;
-			$feed['published'] = $item->getElementsByTagName('pubDate')->item(0)->nodeValue;
+			if($item->getElementsByTagName('creator')->length > 0) {
+				// Wordpress-style author names
+				$feed['author'] = $item->getElementsByTagName('creator')->item(0)->nodeValue;
+			}
+			elseif($item->getElementsByTagName('author')->length > 0) {
+				$feed['author'] = $item->getElementsByTagName('author')->item(0)->nodeValue;
+			}
+			if($item->getElementsByTagName('link')->length > 0) {
+				$feed['link'] = $item->getElementsByTagName('link')->item(0)->nodeValue;
+			}
+			else {
+				Eventlog::log("No link found in " . $dom->getElementsByTagName('title')->item(0)->nodeValue, "warning");
+			}
+			if($item->getElementsByTagName('guid')->length > 0) {
+				$feed['guid'] = $item->getElementsByTagName('guid')->item(0)->nodeValue;
+			}
+			else {
+				Eventlog::log("No guid found in " . $dom->getElementsByTagName('title')->item(0)->nodeValue, "warning");
+			}
+			if($item->getElementsByTagName('pubDate')->length > 0) {
+				$feed['published'] = $item->getElementsByTagName('pubDate')->item(0)->nodeValue;
+			}
+			else {
+				$feed['published'] = HabariDateTime::date_create()->int;
+				Eventlog::log("No pubdate found in " . $dom->getElementsByTagName('title')->item(0)->nodeValue, "warning");
+			}
 			
-			// try to blindly make sure the date is a HDT object - it should be a pretty standard PHP-parseable format
-			$feed['published'] = HabariDateTime::date_create( $feed['published'] );
+			try {
+				$feed['published'] = HabariDateTime::date_create( $feed['published'] );
+			} catch(Exception $e) {}
 			
 			$feed_items[] = $feed;
 			
@@ -418,14 +519,21 @@ class FeedReader extends Plugin
 			
 			// snag all the child tags we need
 			$feed['title'] = $item->getElementsByTagName('title')->item(0)->nodeValue;
-			$feed['author'] = $item->getElementsByTagName('author')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
+			if($item->getElementsByTagName('creator')->length > 0) {
+				// Wordpress-style author names
+				$feed['author'] = $item->getElementsByTagName('creator')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
+			}
+			elseif($item->getElementsByTagName('author')->length > 0) {
+				$feed['author'] = $item->getElementsByTagName('author')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
+			}
 			$feed['content'] = $item->getElementsByTagName('content')->item(0)->nodeValue;
 			$feed['link'] = $item->getElementsByTagName('link')->item(0)->getAttribute('href');
 			$feed['guid'] = $item->getElementsByTagName('id')->item(0)->nodeValue;
 			$feed['published'] = $item->getElementsByTagName('updated')->item(0)->nodeValue;
 			
-			// try to blindly make sure the date is a HDT object - it should be a pretty standard PHP-parseable format
-			$feed['published'] = HabariDateTime::date_create( $feed['published'] );
+			try {
+				$feed['published'] = HabariDateTime::date_create( $feed['published'] );
+			} catch(Exception $e) {}
 			
 			$feed_items[] = $feed;
 			
@@ -449,8 +557,7 @@ class FeedReader extends Plugin
 				continue;
 			}
 			if(empty($item["guid"])) {
-				Eventlog::log( _t("Skipping item %s because it has no GUID.", array($term->term), __CLASS__), 'err' );
-				continue;
+				$item["guid"] = Utils::slugify(md5($item["content"]));
 			}
 			
 			$post = Post::get(array('all:info' => array('guid' => $item["guid"])));
@@ -464,9 +571,14 @@ class FeedReader extends Plugin
 			$post->content = $item["content"];
 			$post->info->guid = $item["guid"];
 			$post->info->link = $item["link"];
-			$post->info->author = $item["author"];
-			$post->updated = HabariDateTime::date_create($item["published"])->int;
-			$post->pubdate = HabariDateTime::date_create($item["published"])->int;
+			if(isset($item['author'])) { $post->info->author = $item["author"]; }
+			try {
+				$post->updated = HabariDateTime::date_create($item["published"])->int;
+				$post->pubdate = HabariDateTime::date_create($item["published"])->int;
+			} catch(Exception $e) {
+				$post->updated = HabariDateTime::date_create()->int;
+				$post->pubdate = HabariDateTime::date_create()->int;
+			}
 			$result = ($post->id) ? $post->update() : $post->insert();
 			$term->associate('post', $post->id);
 			
