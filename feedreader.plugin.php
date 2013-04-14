@@ -196,22 +196,23 @@ class FeedReader extends Plugin
 		foreach($groupedfeeds as $title => $group) {
 			
 			if(count($group) == 1) {
-				$term = $vocab->get_term($group[0]);
+				// ungrouped feed
+				$term = $vocab->get_term(Utils::slugify($group[0]));
 				if(!$term) {
-					$term = $vocab->add_term($group[0]);
+					$term = $vocab->add_term(new Term(array('term' => Utils::slugify($group[0]), 'term_display' => $group[0])));
 				}
 				$term->info->active = true;
 				$term->update();
 			}
 			elseif(count($group) > 1) {
-				$term = $vocab->get_term($title);
+				$term = $vocab->get_term(Utils::slugify($title));
 				if(!$term) {
-					$term = $vocab->add_term($title);
+					$term = $vocab->add_term(new Term(array('term' => Utils::slugify($title), 'term_display' => $title)));
 				}
 				foreach($group as $url) {
-					$urlterm = $vocab->get_term($url);
+					$urlterm = $vocab->get_term(Utils::slugify($url));
 					if(!$urlterm) {
-						$urlterm = $vocab->add_term($url, $term);
+						$urlterm = $vocab->add_term(new Term(array('term' => Utils::slugify($url), 'term_display' => $url)), $term);
 					}
 					$urlterm->info->active = true;
 					$urlterm->update();
@@ -239,6 +240,7 @@ class FeedReader extends Plugin
 		foreach( $feedterms as $term ) {
 			if(count($term->descendants()) > 0) {
 				// Just a group term
+				Eventlog::log("Skipped " . $term->term);
 				continue;
 			}
 			if(!$term->info->active) {
