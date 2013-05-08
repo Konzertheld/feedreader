@@ -672,7 +672,7 @@ class FeedReader extends Plugin
 			}
 			
 			// Create dates from date values. Handle missing and invalid dates.
-			if(isset($item["published"]) {
+			if(isset($item["published"])) {
 				try {
 					$pubdate = HabariDateTime::date_create($item["published"])->int;
 				} catch(Exception $e) {
