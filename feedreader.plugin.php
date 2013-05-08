@@ -16,13 +16,12 @@ class FeedReader extends Plugin
 		// Register block template
 		$this->add_template( 'block.readernav', dirname(__FILE__) . '/block.readernav.php' );
 		
-		// create the post display rule for one addon
 		$rule = new RewriteRule(array(
 			'name' => "display_feedcontent",
 			// this scary regex...
-			'parse_regex' => "#^(?P<context>group|feed)/(?P<feedslug>[^/]+)/?$#i",
+			'parse_regex' => "#^(?P<context>group|feed)/(?P<feedslug>[^/]+)(?:/page/(?P<page>\d+))?/?$#i",
 			// just matches requests that look like this, not regarding the case:
-			'build_str' => '{$context}/{$feedslug}',
+			'build_str' => '{$context}/{$feedslug}(/page/{$page})',
 			'handler' => 'PluginHandler',
 			'action' => 'display_feedcontent',
 			'description' => "Display an addon catalog post of a particular type",
@@ -651,7 +650,7 @@ class FeedReader extends Plugin
 				}
 			}
 			else return;
-			$theme->act_display(array('user_filters' => array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist), 'nolimit' => 1)));
+			$theme->act_display(array('user_filters' => array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist))));
 		}
 		else $theme->act_display_404();
 	}
