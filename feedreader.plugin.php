@@ -672,15 +672,17 @@ class FeedReader extends Plugin
 			}
 			
 			// Create dates from date values. Handle missing and invalid dates.
-			try {
-				$pubdate = HabariDateTime::date_create($item["published"])->int;
-			} catch(Exception $e) {
-				$pubdate = HabariDateTime::date_create()->int;
-			}
-			try {
-				$updated = HabariDateTime::date_create($item["updated"])->int;
-			} catch(Exception $e) {
-				$updated = $pubdate;
+			if(isset($item["published"]) {
+				try {
+					$pubdate = HabariDateTime::date_create($item["published"])->int;
+				} catch(Exception $e) {
+					$pubdate = HabariDateTime::date_create()->int;
+				}
+				try {
+					$updated = HabariDateTime::date_create($item["updated"])->int;
+				} catch(Exception $e) {
+					$updated = $pubdate;
+				}
 			}
 			
 			// Get existing post or create new one
