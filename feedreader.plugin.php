@@ -480,10 +480,6 @@ class FeedReader extends Plugin
 				Eventlog::log("Skipped root group " . $term->term_display);
 				continue;
 			}
-			if(!$term->info->active) {
-				Eventlog::log("Skipped inactive feed " . $term->term_display);
-				continue;
-			}
 			
 			$feed_url = $term->term_display;
 			
