@@ -678,11 +678,19 @@ class FeedReader extends Plugin
 				} catch(Exception $e) {
 					$pubdate = HabariDateTime::date_create()->int;
 				}
+			}
+			else {
+				$pubdate = HabariDateTime::date_create()->int;
+			}
+			if(isset($item["updated"])) {
 				try {
 					$updated = HabariDateTime::date_create($item["updated"])->int;
 				} catch(Exception $e) {
 					$updated = $pubdate;
 				}
+			}
+			else {
+				$updated = $pubdate;
 			}
 			
 			// Get existing post or create new one
@@ -703,6 +711,8 @@ class FeedReader extends Plugin
 			// Save fields
 			$post->title = (!empty($item["title"])) ? $item["title"] : _t("Untitled", __CLASS__);
 			$post->content = $item["content"];
+			$post->updated = $updated;
+			$post->published = $pubdate;
 			//@todo This is bad because it creates duplicates for modified posts
 			if(empty($item["guid"])) {
 				$item["guid"] = Utils::slugify(md5($item["content"]));
