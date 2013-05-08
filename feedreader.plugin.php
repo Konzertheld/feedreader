@@ -15,6 +15,8 @@ class FeedReader extends Plugin
 	{
 		// Register block template
 		$this->add_template( 'block.readernav', dirname(__FILE__) . '/block.readernav.php' );
+		$this->add_template('admin.feeds', dirname(__FILE__) . '/admin.feeds.php');
+		$this->add_template('admin.feeds_items', dirname(__FILE__) . '/admin.feeds_items.php');
 		
 		$rule = new RewriteRule(array(
 			'name' => "display_feedcontent",
@@ -78,6 +80,69 @@ class FeedReader extends Plugin
 		if(Vocabulary::exists('feeds')) Vocabulary::get('feeds')->delete();
 		Post::delete_post_status('read');
 		Post::delete_post_status('unread');
+	}
+	
+	/**
+	 * Admin: Allow access
+	 */
+	public function filter_admin_access( $access, $page, $post_type ) {
+		if ( $page != 'manage_feeds') {
+			return $access;
+		}
+	 
+		return true;
+	}
+	 
+	/**
+	 * Admin: Display page
+	 */
+	public function action_admin_theme_get_manage_feeds( AdminHandler $handler, Theme $theme )
+	{
+		// Get the feeds
+		$feeds = array();
+		foreach(Vocabulary::get('feeds')->get_root_terms() as $term) {
+			if(count($term->descendants()) > 0) {
+				foreach($term->descendants() as $d) {
+					$item = $this->term_to_menu($d);
+					$item['group'] = $term->term_display;
+					$feeds[] = $item;
+				}
+			}
+			else {
+				$feeds[] = $this->term_to_menu($term);
+			}
+		}
+		
+		// Order and filter them
+		
+		// Display
+		$theme->feeds = $feeds;
+		$theme->display( 'admin.feeds' );
+	 
+		// End everything
+		exit;
+	}
+	
+	/**
+	 * Admin: Add page to menu
+	 */
+	public function filter_adminhandler_post_loadplugins_main_menu( array $menu )
+	{
+		$item_menu = array( 'manage_feeds' => array(
+			'url' => URL::get( 'admin', 'page=manage_feeds'),
+			'title' => _t('Manage Feeds'),
+			'text' => _t('Manage Feeds'),
+			'hotkey' => 'F',
+			'selected' => false
+		) );
+	 
+		$slice_point = array_search( 'themes', array_keys( $menu ) );
+		$pre_slice = array_slice( $menu, 0, $slice_point);
+		$post_slice = array_slice( $menu, $slice_point);
+	 
+		$menu = array_merge( $pre_slice, $item_menu, $post_slice );
+	 
+		return $menu;
 	}
 	
 	/**
