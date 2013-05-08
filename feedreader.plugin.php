@@ -108,12 +108,29 @@ class FeedReader extends Plugin
 	 */
 	public function action_admin_theme_get_manage_feeds( AdminHandler $handler, Theme $theme )
 	{
+		$vocab = Vocabulary::get('feeds');
+		
+		// Handle added feeds
+		if(isset($handler->handler_vars['add_feed']) && isset($handler->handler_vars['new_feedurl'])) {
+			// Make sure there is no slash at the end (avoid duplicate entries because of endslashes)
+			$url = $handler->handler_vars['new_feedurl'];
+			$url = (substr($url, -1) == "/") ? substr($url, 0, -1) : $url;
+			$term = $vocab->get_term(Utils::slugify($url));
+			if(!$term) {
+				$term = $vocab->add_term(new Term(array('term' => Utils::slugify($url), 'term_display' => $url)));
+			}
+			
+			// Reset the cronjob so that it runs immediately with the change
+			CronTab::delete_cronjob( 'feedreader' );
+			CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
+		}
+				
 		// Get the feeds
 		$feeds = array();
 		$groups = array();
 		$groups[] = "all";
 		
-		foreach(Vocabulary::get('feeds')->get_root_terms() as $term) {
+		foreach($vocab->get_root_terms() as $term) {
 			if(count($term->descendants()) > 0) {
 				$groups[] = $term->term_display;
 				// Cheesy check if the selected group is the current one that we just added to the list
@@ -275,13 +292,6 @@ class FeedReader extends Plugin
 			// For the action 'configure':
 			case 'configure':
 				$ui = new FormUI( __CLASS__ );
-				// Add a text control for the feed URL
-				$feedlist = $ui->append('textarea', 'feedlist', __CLASS__ . '__feeds', 'Feed URL');
-				// Mark the field as required
-				$feedlist->add_validator( 'validate_required' );
-				// When the form is successfully completed, call $this->updated_config()
-				$ui->on_success( array( $this, 'updated_config') );
-				$ui->set_option( 'success_message', _t( 'Configuration updated' ) );
 				// Display the form
 				$ui->append( 'submit', 'save', _t( 'Save' ) );
 				$ui->out();
@@ -315,10 +325,7 @@ class FeedReader extends Plugin
 	}
 	
 	/**
-	 * Perform actions when the admin plugin form is successfully submitted. 
-	 * 
-	 * @param FormUI $ui The form that successfully completed
-	 * @return boolean True if the normal processing should occur to save plugin options from the form to the database
+	 * UNUSED FUNCTION
 	 */
 	public function updated_config( $ui )
 	{

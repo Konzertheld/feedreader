@@ -1,8 +1,16 @@
 <?php $theme->display('header');?>
 
 <form method="post" action="<?php URL::out('admin', array( 'page' => 'manage_feeds' ) ); ?>" class="buttonform">
+<div class="container">
+	<h2>Add</h2>
+	<div class="item clear">
+		<span class="pct85"><input class="pct95" type="text" name="new_feedurl"></span>
+		<span class="pct10"><input type="submit" name="add_feed" value="<?php _e('Add'); ?>"></span>
+	</div>
+</div>
 
 <div class="container">
+	<h2>Filter</h2>
 	<div class="head clear">
 		<span class="time pct20"><?php _e('Last Update Before'); ?></span>
 		<span class="time pct20"><?php _e('Last Update After'); ?></span>
