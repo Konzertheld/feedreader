@@ -103,6 +103,15 @@ class FeedReader extends Plugin
 	 */
 	public function action_block_content_readernav( $block )
 	{
+		$nav = Cache::get('feedreader_nav');
+		if($nav == null) {
+			$nav = $this->create_navigation();
+		}
+		$block->navigation = $nav;
+	}
+	
+	private function create_navigation()
+	{
 		$nav = array();
 
 		foreach(Vocabulary::get('feeds')->get_root_terms() as $term) {
@@ -111,11 +120,9 @@ class FeedReader extends Plugin
 				$group['url'] = URL::get('display_feedcontent', array('context' => 'group', 'feedslug' => $term->term));
 				$group['title'] = $term->term_display;
 				$group['count'] = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => $term->descendants())));
-				if(!$block->hide_subitems) {
-					$group['subitems'] = array();
-					foreach($term->descendants() as $d) {
-						$group['subitems'][] = $this->term_to_menu($d);
-					}
+				$group['subitems'] = array();
+				foreach($term->descendants() as $d) {
+					$group['subitems'][] = $this->term_to_menu($d);
 				}
 				$nav[] = $group;
 			}
@@ -123,15 +130,21 @@ class FeedReader extends Plugin
 				$nav[] = $this->term_to_menu($term);
 			}
 		}
-		$block->navigation = $nav;
+		Cache::set('feedreader_nav', $nav, 60 * 60 * 24 * 7);
+		
+		return $nav;
 	}
 	
 	private function term_to_menu($term)
 	{
-		$entry = array();
-		$entry['url'] = URL::get('display_feedcontent', array('context' => 'feed', 'feedslug' => $term->term));
-		$entry['title'] = ($term->info->title) ? $term->info->title : $term->term_display;
-		$entry['count'] = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => array($term))));
+		$entry = Cache::get(array('feedreader_navitems', $term->term));
+		if($entry == null) {
+			$entry = array();
+			$entry['url'] = URL::get('display_feedcontent', array('context' => 'feed', 'feedslug' => $term->term));
+			$entry['title'] = ($term->info->title) ? $term->info->title : $term->term_display;
+			$entry['count'] = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => array($term))));
+			Cache::set(array('feedreader_navitems', $term->term), $entry, 60 * 60 * 24 * 7);
+		}
 		return $entry;
 	}
 
@@ -424,7 +437,8 @@ class FeedReader extends Plugin
 			EventLog::log( sprintf( _t( 'Updated feed %1$s' ), $feed_url ), 'info' );
 		}
 		
-		// Check if there are still feeds 
+		// This should only happen if any feed was updated
+		$this->create_navigation();
 		
 		// log that we finished
 		EventLog::log( sprintf( _t( 'Finished updating %1$d feed(s).' ), count( $feedterms ) ), 'info');
@@ -482,8 +496,7 @@ class FeedReader extends Plugin
 				$feed['published'] = $item->getElementsByTagName('pubDate')->item(0)->nodeValue;
 			}
 			else {
-				$feed['published'] = HabariDateTime::date_create()->int;
-				Eventlog::log("No pubdate found in " . $dom->getElementsByTagName('title')->item(0)->nodeValue, "warning");
+				Eventlog::log("No pubDate found in " . $dom->getElementsByTagName('title')->item(0)->nodeValue, "warning");
 			}
 			
 			try {
@@ -527,19 +540,21 @@ class FeedReader extends Plugin
 			}
 			$feed['content'] = $item->getElementsByTagName('content')->item(0)->nodeValue;
 			$feed['link'] = $item->getElementsByTagName('link')->item(0)->getAttribute('href');
-			$feed['guid'] = $item->getElementsByTagName('id')->item(0)->nodeValue;
-			$feed['published'] = $item->getElementsByTagName('updated')->item(0)->nodeValue;
-			
-			try {
-				$feed['published'] = HabariDateTime::date_create( $feed['published'] );
-			} catch(Exception $e) {}
+			if($item->getElementsByTagName('id')->length > 0) {
+				$feed['guid'] = $item->getElementsByTagName('id')->item(0)->nodeValue;
+			}
+			if($item->getElementsByTagName('published')->length > 0) {
+				$feed['published'] = $item->getElementsByTagName('published')->item(0)->nodeValue;
+			}
+			if($item->getElementsByTagName('updated')->length > 0) {
+				$feed['updated'] = $item->getElementsByTagName('updated')->item(0)->nodeValue;
+			}
 			
 			$feed_items[] = $feed;
 			
 		}
 		
 		return $feed_items;
-		
 	}
 	
 	/**
@@ -548,17 +563,29 @@ class FeedReader extends Plugin
 	 * @param int $feed_id The feed ID stored in the DB.
 	 * @param array $items Array of items parsed from the feed to add.
 	 */
-	private function replace ( $term, $items ) {	
+	private function replace ( $term, $items ) {
+		$changed = false;
+		
 		foreach ( $items as $item ) {
 			// Sanity checks
 			if(empty($item["content"])) {
 				Eventlog::log( _t("Skipping item %s because it has no content.", array($term->term), __CLASS__), 'err' );
 				continue;
 			}
-			if(empty($item["guid"])) {
-				$item["guid"] = Utils::slugify(md5($item["content"]));
+			
+			// Create dates from date values. Handle missing and invalid dates.
+			try {
+				$pubdate = HabariDateTime::date_create($item["published"])->int;
+			} catch(Exception $e) {
+				$pubdate = HabariDateTime::date_create()->int;
+			}
+			try {
+				$updated = HabariDateTime::date_create($item["updated"])->int;
+			} catch(Exception $e) {
+				$updated = $pubdate;
 			}
 			
+			// Get existing post or create new one
 			$post = Post::get(array('all:info' => array('guid' => $item["guid"])));
 			if(!$post) {
 				$post = new Post();
@@ -566,24 +593,43 @@ class FeedReader extends Plugin
 				$post->user_id = 1;
 				$post->status = Post::status('unread');
 			}
+			else {
+				// Check if the post was modified
+				if($post->updated >= $updated) {
+					continue;
+				}
+			}
+			
+			// Save fields
 			$post->title = (!empty($item["title"])) ? $item["title"] : _t("Untitled", __CLASS__);
 			$post->content = $item["content"];
-			$post->info->guid = $item["guid"];
-			if(isset($item['link'])) { $post->info->link = $item["link"]; }
-			if(isset($item['author'])) { $post->info->author = $item["author"]; }
-			try {
-				$post->updated = HabariDateTime::date_create($item["published"])->int;
-				$post->pubdate = HabariDateTime::date_create($item["published"])->int;
-			} catch(Exception $e) {
-				$post->updated = HabariDateTime::date_create()->int;
-				$post->pubdate = HabariDateTime::date_create()->int;
+			//@todo This is bad because it creates duplicates for modified posts
+			if(empty($item["guid"])) {
+				$item["guid"] = Utils::slugify(md5($item["content"]));
 			}
+			$post->info->guid = $item["guid"];
+			if(isset($item['link'])) {
+				$post->info->link = $item["link"];
+			}
+			if(isset($item['author'])) {
+				$post->info->author = $item["author"];
+			}
+
 			$result = ($post->id) ? $post->update() : $post->insert();
 			$term->associate('post', $post->id);
 			
 			if ( !$result ) {
-				EventLog::log( 'There was an error saving a feed item.', 'err' );
+				Eventlog::log( _t("There was an error saving item %s", array($term->term), __CLASS__), 'err' );
 			}
+			else {
+				// If we got here and there was no error, at least one item was created or updated.
+				$changed = true;
+			}
+		}
+		
+		if($changed){
+			// At least one item has changed. Expire the navigation cache for this feed.
+			Cache::expire(array('feedreader_navitems', $term->term));
 		}
 	}
 	
