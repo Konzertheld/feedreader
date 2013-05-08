@@ -693,7 +693,7 @@ class FeedReader extends Plugin
 			}
 			else {
 				// Check if the post was modified
-				if($post->updated >= $updated) {
+				if($post->updated->int >= $updated) {
 					continue;
 				}
 			}
