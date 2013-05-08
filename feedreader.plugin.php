@@ -26,7 +26,7 @@ class FeedReader extends Plugin
 			'build_str' => '{$context}/{$feedslug}(/page/{$page})',
 			'handler' => 'PluginHandler',
 			'action' => 'display_feedcontent',
-			'description' => "Display an addon catalog post of a particular type",
+			'description' => "Display a certain feed or a group of feeds",
 		));
 
 		$this->add_rule($rule, 'display_feedcontent');
@@ -83,6 +83,16 @@ class FeedReader extends Plugin
 	}
 	
 	/**
+	 * Admin: Redirect post requests to get thingy
+	 */
+	public function alias()
+	{
+		return array(
+			'action_admin_theme_get_manage_feeds' => 'action_admin_theme_post_manage_feeds'
+		);
+	}
+	
+	/**
 	 * Admin: Allow access
 	 */
 	public function filter_admin_access( $access, $page, $post_type ) {
@@ -100,23 +110,40 @@ class FeedReader extends Plugin
 	{
 		// Get the feeds
 		$feeds = array();
+		$groups = array();
+		$groups[] = "all";
+		
 		foreach(Vocabulary::get('feeds')->get_root_terms() as $term) {
 			if(count($term->descendants()) > 0) {
+				$groups[] = $term->term_display;
+				// Cheesy check if the selected group is the current one that we just added to the list
+				if($handler->handler_vars['group'] != 0 && $handler->handler_vars['group'] != count($groups) - 1) {
+					continue;
+				}
 				foreach($term->descendants() as $d) {
 					$item = $this->term_to_menu($d);
+					if(($handler->handler_vars['items'] == 1 && $item['count'] > 0) || ($handler->handler_vars['items'] == 2 && $item['count'] == 0)) {
+						continue;
+					}
 					$item['group'] = $term->term_display;
+					
 					$feeds[] = $item;
 				}
 			}
 			else {
-				$feeds[] = $this->term_to_menu($term);
+				$item = $this->term_to_menu($term);
+				if(($handler->handler_vars['items'] == 1 && $item['count'] > 0) || ($handler->handler_vars['items'] == 2 && $item['count'] == 0)) {
+						continue;
+					}
+				$feeds[] = $item;
 			}
 		}
 		
-		// Order and filter them
-		
 		// Display
 		$theme->feeds = $feeds;
+		$theme->groups = $groups;
+		$theme->group = ($handler->handler_vars['group']) ? $handler->handler_vars['group'] : $groups[0];
+		$theme->itemstatus = ($handler->handler_vars['items']) ? $handler->handler_vars['items'] : '';
 		$theme->display( 'admin.feeds' );
 	 
 		// End everything
