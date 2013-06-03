@@ -227,7 +227,7 @@ class FeedReader extends Plugin
 		foreach(Vocabulary::get('feeds')->get_root_terms() as $term) {
 			if(count($term->descendants()) > 0) {
 				$group = array();
-				$group['url'] = URL::get('display_feedcontent', array('context' => 'group', 'feedslug' => $term->term));
+				$group['internal_url'] = URL::get('display_feedcontent', array('context' => 'group', 'feedslug' => $term->term));
 				$group['title'] = $term->term_display;
 				$group['count'] = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => $term->descendants())));
 				$group['subitems'] = array();
@@ -525,7 +525,7 @@ class FeedReader extends Plugin
 			}
 			
 			// At least now we got a human-readable feed title, save it
-			$term->info->title = $dom->getElementsByTagName('title')->item(0)->nodeValue;
+			$term->term_display = $dom->getElementsByTagName('title')->item(0)->nodeValue;
 			$term->update();
 			$this->replace( $term, $items );
 			$term->info->lastcheck = HabariDateTime::date_create()->int;
