@@ -118,6 +118,8 @@ class FeedReader extends Plugin
 			$term = $vocab->get_term(Utils::slugify($url));
 			if(!$term) {
 				$term = $vocab->add_term(new Term(array('term' => Utils::slugify($url), 'term_display' => $url)));
+				$term->info->url = $url;
+				$term->update();
 			}
 			
 			// Reset the cronjob so that it runs immediately with the change
@@ -142,7 +144,7 @@ class FeedReader extends Plugin
 					if(($handler->handler_vars['items'] == 1 && $item['count'] > 0) || ($handler->handler_vars['items'] == 2 && $item['count'] == 0)) {
 						continue;
 					}
-					$item['group'] = $term->term_display;
+					$item['group'] = $term;
 					
 					$feeds[] = $item;
 				}
@@ -248,8 +250,10 @@ class FeedReader extends Plugin
 		$entry = Cache::get(array('feedreader_navitems', $term->term));
 		if($entry == null) {
 			$entry = array();
-			$entry['url'] = URL::get('display_feedcontent', array('context' => 'feed', 'feedslug' => $term->term));
-			$entry['title'] = ($term->info->title) ? $term->info->title : $term->term_display;
+			$entry['internal_url'] = URL::get('display_feedcontent', array('context' => 'feed', 'feedslug' => $term->term));
+			$entry['title'] = $term->term_display;
+			$entry['url'] = $term->info->url;
+			$entry['lastcheck'] = $term->info->lastcheck;
 			$entry['count'] = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => array($term))));
 			Cache::set(array('feedreader_navitems', $term->term), $entry, 60 * 60 * 24 * 7);
 		}
@@ -444,7 +448,7 @@ class FeedReader extends Plugin
 						$urlterm = $vocab->add_term(new Term(array('term' => Utils::slugify($feed['xmlUrl']), 'term_display' => $feed['xmlUrl'])), $term);
 					}
 					$urlterm->info->active = true;
-					$urlterm->info->title = (string) $feed['title'];
+					$urlterm->term_display = (string) $feed['title'];
 					$urlterm->update();
 					$feeds++;
 				}
@@ -455,7 +459,7 @@ class FeedReader extends Plugin
 					$urlterm = $vocab->add_term(new Term(array('term' => Utils::slugify($o['xmlUrl']), 'term_display' => $o['xmlUrl'])));
 				}
 				$urlterm->info->active = true;
-				$urlterm->info->title = (string) $o['title'];
+				$urlterm->term_display = (string) $o['title'];
 				$urlterm->update();
 				$feeds++;
 			}
@@ -477,14 +481,7 @@ class FeedReader extends Plugin
 		foreach( $feedterms as $term ) {
 			if(count($term->descendants()) > 0) {
 				// Just a group term
-				Eventlog::log("Skipped root group " . $term->term_display);
-				continue;
-			}
-			
-			$feed_url = $term->term_display;
-			
-			if ( $feed_url == '' ) {
-				EventLog::log( sprintf( _t('Feed ID %1$d has an invalid URL.'), $feed_id ), 'warning' );
+				Eventlog::log("Skipped root group " . $term->term);
 				continue;
 			}
 			
@@ -493,6 +490,13 @@ class FeedReader extends Plugin
 				continue;
 			}
 			
+			$feed_url = $term->info->url;
+			
+			if ( $feed_url == '' ) {
+				EventLog::log( sprintf( _t('Feed $s is missing the URL.'), $term->term ), 'warning' );
+				continue;
+			}
+					
 			// load the XML data
 			$xml = RemoteRequest::get_contents( $feed_url );
 			if ( !$xml ) {
@@ -653,9 +657,6 @@ class FeedReader extends Plugin
 	
 	/**
 	 * Insert all the feed items as posts and modify existing posts
-	 * 
-	 * @param int $feed_id The feed ID stored in the DB.
-	 * @param array $items Array of items parsed from the feed to add.
 	 */
 	private function replace ( $term, $items ) {
 		$changed = false;
