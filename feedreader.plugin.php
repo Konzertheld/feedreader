@@ -272,7 +272,7 @@ class FeedReader extends Plugin
 		// Is this plugin the one specified?
 		if($plugin_id == $this->plugin_id()) {
 			// Add a 'configure' action in the admin's list of plugins
-			$actions['configure']= _t('Configure');
+			//$actions['configure']= _t('Configure');
 			$actions['update'] = _t('Update All Now');
 			$actions['import'] = _t('Import OPML file');
 			$actions['reinstall'] = _t('Re-install (DANGEROUS)');
@@ -293,13 +293,12 @@ class FeedReader extends Plugin
 		if($plugin_id == $this->plugin_id()) {
 			// Depending on the action specified, do different things
 			switch($action) {
-			// For the action 'configure':
-			case 'configure':
-				$ui = new FormUI( __CLASS__ );
-				// Display the form
-				$ui->append( 'submit', 'save', _t( 'Save' ) );
-				$ui->out();
-				break;
+			// case 'configure':
+				// $ui = new FormUI( __CLASS__ );
+				// // Display the form
+				// $ui->append( 'submit', 'save', _t( 'Save' ) );
+				// $ui->out();
+				// break;
 			case 'update':
 				$result = $this->filter_load_feeds(true);
 				if($result) {
@@ -326,102 +325,6 @@ class FeedReader extends Plugin
 				break;
 			}
 		}
-	}
-	
-	/**
-	 * UNUSED FUNCTION
-	 */
-	public function updated_config( $ui )
-	{
-		// Save general options and sorted feedlist
-		$feedlist = explode( "\n", $ui->feedlist->value );
-		// Make sure no url ends with a slash (for unifying and to avoid duplicates)
-		array_walk($feedlist, create_function('&$url', '$url = (substr($url, -1) == "/") ? substr($url, 0, -1) : $url;'));
-		$feedlist = array_unique($feedlist);
-		natsort( $feedlist );
-		// Dirty hack that will be removed when the new FormUI arrives
-		$_POST[$ui->feedlist->field] =  implode( "\n", $feedlist );
-		$ui->save();
-		
-		// Get feeds
-		$groupedfeeds = array();
-		$feeds = array();
-		foreach($feedlist as $f) {
-			if(strpos($f, '=')) {
-				list($title, $urlstring) = explode('=', $f);
-				$urls = explode(';', $urlstring);
-			}
-			else {
-				$urls = explode(';', $f);
-				$title = $urls[0];
-			}
-			if(empty($title)) continue;
-			$groupedfeeds[$title] = $urls;
-			$feeds = array_merge($feeds, $urls);
-		}
-		
-		$feeds = array_unique($feeds);
-		
-		$vocab = Vocabulary::get('feeds');
-			
-		// Cleanup inactive and unused feed terms
-		// $tree = $vocab->get_tree();
-		// foreach($tree as $term) {
-			// if(!in_array($term->term_display, $feeds)) {
-				// The user removed the feed, deactivate it
-				// $term->info->active = false;
-				// $term->update();
-			// }
-			// if(!$term->info->active) {
-				// If this feed is deactivated, check if there are posts associated and if not, remove it
-				// $posts = Posts::get(array('vocabulary' => array('all' => array($term)), 'count' => '*'));
-				// if(!$posts) {
-					// $vocab->delete_term($term);
-				// }
-			// }
-		// }
-		
-		// Process urls and add new terms
-		$roots = 0;
-		$groups = 0;
-		$feeds = 0;
-		
-		foreach($groupedfeeds as $title => $group) {
-			if(count($group) == 1) {
-				// ungrouped feed
-				$term = $vocab->get_term(Utils::slugify($group[0]));
-				if(!$term) {
-					$term = $vocab->add_term(new Term(array('term' => Utils::slugify($group[0]), 'term_display' => $group[0])));
-				}
-				$term->info->active = true;
-				$term->update();
-				$roots++;
-			}
-			elseif(count($group) > 1) {
-				$term = $vocab->get_term(Utils::slugify($title));
-				if(!$term) {
-					$term = $vocab->add_term(new Term(array('term' => Utils::slugify($title), 'term_display' => $title)));
-				}
-				$groups++;
-				foreach($group as $url) {
-					$urlterm = $vocab->get_term(Utils::slugify($url));
-					if(!$urlterm) {
-						$urlterm = $vocab->add_term(new Term(array('term' => Utils::slugify($url), 'term_display' => $url)), $term);
-					}
-					$urlterm->info->active = true;
-					$urlterm->update();
-					$feeds++;
-				}
-			}
-		}
-		
-		Eventlog::log('Updated feeds from config. %1$d feeds in %2$d groups and %3$d ungrouped feeds.', array($feeds, $groups, $roots), __CLASS__);
-
-		// Reset the cronjob so that it runs immediately with the change
-		CronTab::delete_cronjob( 'feedreader' );
-		CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
-
-		return false;
 	}
 	
 	/**
