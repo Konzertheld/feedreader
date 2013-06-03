@@ -393,58 +393,71 @@ class FeedReader extends Plugin
 				continue;
 			}
 			
-			$feed_url = $term->info->url;
-			
-			if ( $feed_url == '' ) {
-				EventLog::log( sprintf( _t('Feed $s is missing the URL.'), $term->term ), 'warning' );
-				continue;
-			}
-					
-			// load the XML data
-			$xml = RemoteRequest::get_contents( $feed_url );
-			if ( !$xml ) {
-				EventLog::log( sprintf( _t('Unable to fetch feed %1$s data.'), $feed_url ), 'warning' );
-				$term->info->broken = true;
-				$term->update();
+			if(isset($term->info->broken) && $term->info->broken) {
+				// Feed was marked as broken and needs manual fixing
 				continue;
 			}
 			
-			$dom = new DOMDocument();
-			// @ to hide parse errors
-			@$dom->loadXML( $xml );
-			
-			if ( $dom->getElementsByTagName('rss')->length > 0 ) {
-				$items = $this->parse_rss( $dom );
-			}
-			else if ( $dom->getElementsByTagName('feed')->length > 0 ) {
-				$items = $this->parse_atom( $dom );
-			}
-			else {
-				// it's an unsupported format
-				EventLog::log( sprintf( _t('Feed %1$s is an unsupported format and has been deactivated.'), $feed_url), 'warning' );
-				$term->info->active = false;
-				$term->update();
-				continue;
-			}
-			
-			// At least now we got a human-readable feed title, save it
-			$term->term_display = $dom->getElementsByTagName('title')->item(0)->nodeValue;
-			$term->update();
-			$this->replace( $term, $items );
-			$term->info->lastcheck = HabariDateTime::date_create()->int;
-			$term->update();
-			
-			// log that the feed was updated
-			EventLog::log( sprintf( _t( 'Updated feed %1$s' ), $feed_url ), 'info' );
+			$this->update_feed($term);
 		}
 		
 		// This should only happen if any feed was updated
 		$this->create_navigation();
 		
 		// log that we finished
-		EventLog::log( sprintf( _t( 'Finished updating %1$d feed(s).' ), count( $feedterms ) ), 'info');
+		EventLog::log( sprintf( _t( 'Finished processing %1$d feed(s).' ), count( $feedterms ) ), 'info');
 				
 		return $result;		// only change a cron result to false when it fails
+	}
+	
+	public function update_feed($term)
+	{
+		$feed_url = $term->info->url;
+		
+		if ( $feed_url == '' ) {
+			EventLog::log( _t('Feed $s is missing the URL. Feed deactivated.', $term->term), 'warning' );
+			$term->info->broken = true;
+			$term->update();
+			return false;
+		}
+				
+		// load the XML data
+		$xml = RemoteRequest::get_contents( $feed_url );
+		if ( !$xml ) {
+			EventLog::log( _t('Unable to fetch feed %1$s data. Feed deactivated.', $term->term), 'warning' );
+			$term->info->broken = true;
+			$term->update();
+			return false;
+		}
+		
+		$dom = new DOMDocument();
+		// @ to hide parse errors
+		@$dom->loadXML( $xml );
+		
+		if ( $dom->getElementsByTagName('rss')->length > 0 ) {
+			$items = $this->parse_rss( $dom );
+		}
+		else if ( $dom->getElementsByTagName('feed')->length > 0 ) {
+			$items = $this->parse_atom( $dom );
+		}
+		else {
+			// it's an unsupported format
+			EventLog::log( sprintf( _t('Feed %1$s is an unsupported format and has been deactivated.'), $term->term), 'warning' );
+			$term->info->broken = true;
+			$term->update();
+			return false;
+		}
+		
+		// Save the feed title
+		$term->term_display = $dom->getElementsByTagName('title')->item(0)->nodeValue;
+		// Save the feed items
+		$this->replace( $term, $items );
+		// Everything is done. Save the time so we don't check this feed again soon
+		$term->info->lastcheck = HabariDateTime::date_create()->int;
+		$term->update();
+		
+		// log that the feed was updated
+		EventLog::log( sprintf( _t( 'Updated feed %1$s' ), $feed_url ), 'info' );
 	}
 	
 	/**
