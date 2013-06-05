@@ -407,7 +407,7 @@ class FeedReader extends Plugin
 		$this->create_navigation();
 		
 		// log that we finished
-		EventLog::log( sprintf( _t( 'Finished processing %1$d feed(s).' ), count( $feedterms ) ), 'info');
+		EventLog::log( _t( 'Finished processing %1$d feed(s).', array(count($feedterms)), __CLASS__), 'info');
 				
 		return $result;		// only change a cron result to false when it fails
 	}
@@ -417,7 +417,7 @@ class FeedReader extends Plugin
 		$feed_url = $term->info->url;
 		
 		if ( $feed_url == '' ) {
-			EventLog::log( _t('Feed $s is missing the URL. Feed deactivated.', $term->term), 'warning' );
+			EventLog::log( _t('Feed $s is missing the URL. Feed deactivated.', array($term->term), __CLASS__), 'warning' );
 			$term->info->broken = true;
 			$term->update();
 			return false;
@@ -426,7 +426,7 @@ class FeedReader extends Plugin
 		// load the XML data
 		$xml = RemoteRequest::get_contents( $feed_url );
 		if ( !$xml ) {
-			EventLog::log( _t('Unable to fetch feed %1$s data. Feed deactivated.', $term->term), 'warning' );
+			EventLog::log( _t('Unable to fetch feed %1$s data. Feed deactivated.', array($term->term), __CLASS__), 'warning' );
 			$term->info->broken = true;
 			$term->update();
 			return false;
@@ -444,7 +444,7 @@ class FeedReader extends Plugin
 		}
 		else {
 			// it's an unsupported format
-			EventLog::log( sprintf( _t('Feed %1$s is an unsupported format and has been deactivated.'), $term->term), 'warning' );
+			EventLog::log( _t('Feed %1$s is an unsupported format and has been deactivated.', array($term->term), __CLASS__), 'warning' );
 			$term->info->broken = true;
 			$term->update();
 			return false;
@@ -459,7 +459,7 @@ class FeedReader extends Plugin
 		$term->update();
 		
 		// log that the feed was updated
-		EventLog::log( sprintf( _t( 'Updated feed %1$s' ), $feed_url ), 'info' );
+		EventLog::log( _t( 'Updated feed %1$s', array($term->term), __CLASS__ ), 'info' );
 	}
 	
 	/**
