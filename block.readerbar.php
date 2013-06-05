@@ -1,3 +1,1 @@
-<?php $theme->mark_all_read_form->out();
-echo !empty($content->form->mark_all_read->value);
-?>
+<?php if(isset($theme->mark_all_read_form)) $theme->mark_all_read_form->out(); ?>
