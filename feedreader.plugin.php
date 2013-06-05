@@ -15,6 +15,7 @@ class FeedReader extends Plugin
 	{
 		// Register block template
 		$this->add_template( 'block.readernav', dirname(__FILE__) . '/block.readernav.php' );
+		$this->add_template( 'block.readerbar', dirname(__FILE__) . '/block.readerbar.php' );
 		$this->add_template('admin.feeds', dirname(__FILE__) . '/admin.feeds.php');
 		$this->add_template('admin.feeds_items', dirname(__FILE__) . '/admin.feeds_items.php');
 		
@@ -197,6 +198,7 @@ class FeedReader extends Plugin
 	public function filter_block_list( $blocklist )
 	{
 		$blocklist[ 'readernav' ] = _t( 'FeedReader navigation' );
+		$blocklist[ 'readerbar' ] = _t( 'FeedReader action bar' );
 		return $blocklist;
 	}
 	
@@ -219,7 +221,7 @@ class FeedReader extends Plugin
 		}
 		$block->navigation = $nav;
 	}
-	
+		
 	private function create_navigation()
 	{
 		$nav = array();
@@ -663,8 +665,15 @@ class FeedReader extends Plugin
 	{
 		$term = Vocabulary::get('feeds')->get_term($params['feedslug']);
 		if($term) {
+			// Add action bar form
+			$form = new FormUI(__CLASS__);
+			$form->append('submit', 'mark_page_read', 'Mark page read');
+			$form->append('submit', 'mark_all_read', 'Mark all read');
+			$form->append('submit', 'show_read', 'Re-display read posts');
+			$theme->mark_all_read_form = $form;
+			
+			// Select posts
 			if($params['context'] == 'feed') {
-				
 				$termlist = array($params['feedslug']);
 			}
 			elseif($params['context'] == 'group') {
@@ -674,7 +683,36 @@ class FeedReader extends Plugin
 				}
 			}
 			else return;
-			$theme->act_display(array('user_filters' => array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist))));
+			
+			// Process "show read"
+			if(empty($form->show_read->value)) {
+				//$filters = array('user_filters' => array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist)));
+				$filters = array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist));
+			}
+			else {
+				//$filters = array('user_filters' => array('status' => array(Post::status('unread'), Post::status('read')), 'vocabulary' => array('feeds:term' => $termlist)));
+				$filters = array('status' => array(Post::status('unread'), Post::status('read')), 'vocabulary' => array('feeds:term' => $termlist));
+			}
+			
+			// Process "mark ALL as read"
+			if(!empty($form->mark_all_read->value)) {
+				$filters['nolimit'] = 1;
+			}
+			
+			// Get posts
+			$posts = Posts::get($filters);
+		
+			// Process "mark * as read"
+			if(!empty($form->mark_page_read->value) || !empty($form->mark_all_read->value)) {
+				foreach($posts as $post) {
+					$post->status = Post::status('read');
+					$post->update();
+					//Utils::debug($post);
+				}
+			}
+			
+			$theme->feedterm = $term;
+			$theme->act_display(array('user_filters' => $filters));
 		}
 		else $theme->act_display_404();
 	}
