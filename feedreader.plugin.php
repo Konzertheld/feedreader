@@ -456,14 +456,21 @@ class FeedReader extends Plugin
 		
 		// Save the feed title
 		$term->term_display = $dom->getElementsByTagName('title')->item(0)->nodeValue;
-		// Save the feed items
-		$this->replace( $term, $items );
+		
+		// Check if the feed content was okay
+		if($items === false) {
+			// There were empty or invalid posts
+			EventLog::log( _t('Feed %1$s had invalid posts and has been deactivated.', array($term->term), __CLASS__), 'warning' );
+		}
+		else {
+			// Everything is okay. Save and log success.
+			$this->replace( $term, $items );
+			EventLog::log( _t( 'Updated feed %1$s', array($term->term), __CLASS__ ), 'info' );
+		}
+		
 		// Everything is done. Save the time so we don't check this feed again soon
 		$term->info->lastcheck = HabariDateTime::date_create()->int;
 		$term->update();
-		
-		// log that the feed was updated
-		EventLog::log( _t( 'Updated feed %1$s', array($term->term), __CLASS__ ), 'info' );
 	}
 	
 	/**
@@ -558,8 +565,20 @@ class FeedReader extends Plugin
 			elseif($item->getElementsByTagName('author')->length > 0) {
 				$feed['author'] = $item->getElementsByTagName('author')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
 			}
-			$feed['content'] = $item->getElementsByTagName('content')->item(0)->nodeValue;
-			$feed['link'] = $item->getElementsByTagName('link')->item(0)->getAttribute('href');
+			if($item->getElementsByTagName('content')->length > 0) {
+				$feed['content'] = $item->getElementsByTagName('content')->item(0)->nodeValue;
+			}
+			else {
+				// Item with no content, something is wrong with this feed
+				return false;
+			}
+			if($item->getElementsByTagName('link')->length > 0) {
+				$feed['link'] = $item->getElementsByTagName('link')->item(0)->getAttribute('href');
+			}
+			else {
+				// Item with no URL, something is wrong with this feed
+				return false;
+			}
 			if($item->getElementsByTagName('id')->length > 0) {
 				$feed['guid'] = $item->getElementsByTagName('id')->item(0)->nodeValue;
 			}
