@@ -491,14 +491,30 @@ class FeedReader extends Plugin
 			
 			$feed = array();
 			
-			// snag all the child tags we need
-			$feed['title'] = $item->getElementsByTagName('title')->item(0)->nodeValue;
+			if($item->getElementsByTagName('title')->length > 0) {
+				$feed['title'] = $item->getElementsByTagName('title')->item(0)->nodeValue;
+			}
+			else {
+				// Item with no title, something is wrong with this feed
+				return false;
+			}
 			if($item->getElementsByTagName('encoded')->length > 0) {
 				// Wordpress-style fulltext content
 				$feed['content'] = $item->getElementsByTagName('encoded')->item(0)->nodeValue;
 			}
-			else {
+			else if($item->getElementsByTagName('description')->length > 0) {
 				$feed['content'] = $item->getElementsByTagName('description')->item(0)->nodeValue;
+			}
+			else {
+				// Item with no content, something is wrong with this feed
+				return false;
+			}
+			if($item->getElementsByTagName('link')->length > 0) {
+				$feed['link'] = $item->getElementsByTagName('link')->item(0)->nodeValue;
+			}
+			else {
+				// Item with no URL, something is wrong with this feed
+				return false;
 			}
 			if($item->getElementsByTagName('creator')->length > 0) {
 				// Wordpress-style author names
@@ -506,12 +522,6 @@ class FeedReader extends Plugin
 			}
 			elseif($item->getElementsByTagName('author')->length > 0) {
 				$feed['author'] = $item->getElementsByTagName('author')->item(0)->nodeValue;
-			}
-			if($item->getElementsByTagName('link')->length > 0) {
-				$feed['link'] = $item->getElementsByTagName('link')->item(0)->nodeValue;
-			}
-			else {
-				Eventlog::log("No link found in " . $dom->getElementsByTagName('title')->item(0)->nodeValue, "warning");
 			}
 			if($item->getElementsByTagName('guid')->length > 0) {
 				$feed['guid'] = $item->getElementsByTagName('guid')->item(0)->nodeValue;
@@ -523,13 +533,6 @@ class FeedReader extends Plugin
 			if($item->getElementsByTagName('pubDate')->length > 0) {
 				$feed['published'] = $item->getElementsByTagName('pubDate')->item(0)->nodeValue;
 			}
-			else {
-				Eventlog::log("No pubDate found in " . $dom->getElementsByTagName('title')->item(0)->nodeValue, "warning");
-			}
-			
-			try {
-				$feed['published'] = HabariDateTime::date_create( $feed['published'] );
-			} catch(Exception $e) {}
 			
 			$feed_items[] = $feed;
 			
@@ -557,14 +560,12 @@ class FeedReader extends Plugin
 			
 			$feed = array();
 			
-			// snag all the child tags we need
-			$feed['title'] = $item->getElementsByTagName('title')->item(0)->nodeValue;
-			if($item->getElementsByTagName('creator')->length > 0) {
-				// Wordpress-style author names
-				$feed['author'] = $item->getElementsByTagName('creator')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
+			if($item->getElementsByTagName('title')->length > 0) {
+				$feed['title'] = $item->getElementsByTagName('title')->item(0)->nodeValue;
 			}
-			elseif($item->getElementsByTagName('author')->length > 0) {
-				$feed['author'] = $item->getElementsByTagName('author')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
+			else {
+				// Item with no title, something is wrong with this feed
+				return false;
 			}
 			if($item->getElementsByTagName('content')->length > 0) {
 				$feed['content'] = $item->getElementsByTagName('content')->item(0)->nodeValue;
@@ -579,6 +580,13 @@ class FeedReader extends Plugin
 			else {
 				// Item with no URL, something is wrong with this feed
 				return false;
+			}
+			if($item->getElementsByTagName('creator')->length > 0) {
+				// Wordpress-style author names
+				$feed['author'] = $item->getElementsByTagName('creator')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
+			}
+			elseif($item->getElementsByTagName('author')->length > 0) {
+				$feed['author'] = $item->getElementsByTagName('author')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
 			}
 			if($item->getElementsByTagName('id')->length > 0) {
 				$feed['guid'] = $item->getElementsByTagName('id')->item(0)->nodeValue;
