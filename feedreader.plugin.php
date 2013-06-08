@@ -344,15 +344,15 @@ class FeedReader extends Plugin
 				// This is a group
 				$term = $vocab->get_term(Utils::slugify($o['title']));
 				if(!$term) {
-					$term = $vocab->add_term(new Term(array('term' => Utils::slugify($o['title']), 'term_display' => $o['title'])));
+					$term = $vocab->add_term(new Term(Utils::slugify($o['title'])));
 				}
 				$groups++;
 				foreach($o->outline as $feed) {
 					$urlterm = $vocab->get_term(Utils::slugify($feed['xmlUrl']));
 					if(!$urlterm) {
-						$urlterm = $vocab->add_term(new Term(array('term' => Utils::slugify($feed['xmlUrl']), 'term_display' => $feed['xmlUrl'])), $term);
+						$urlterm = $vocab->add_term(new Term(Utils::slugify($feed['xmlUrl'])), $term);
 					}
-					$urlterm->info->active = true;
+					$urlterm->info->url = (string) $feed['xmlUrl'];
 					$urlterm->term_display = (string) $feed['title'];
 					$urlterm->update();
 					$feeds++;
@@ -361,15 +361,19 @@ class FeedReader extends Plugin
 			else {
 				$urlterm = $vocab->get_term(Utils::slugify($o['xmlUrl']));
 				if(!$urlterm) {
-					$urlterm = $vocab->add_term(new Term(array('term' => Utils::slugify($o['xmlUrl']), 'term_display' => $o['xmlUrl'])));
+					$urlterm = $vocab->add_term(new Term(Utils::slugify($o['xmlUrl'])));
 				}
-				$urlterm->info->active = true;
+				$urlterm->info->url = (string) $o['xmlUrl'];
 				$urlterm->term_display = (string) $o['title'];
 				$urlterm->update();
 				$feeds++;
 			}
 		}
 		Session::notice(_t('Imported %1$d feeds and %2$d groups', array($feeds, $groups), __CLASS__));
+		
+		// Reset the cronjob so that it runs immediately with the change
+		CronTab::delete_cronjob( 'feedreader' );
+		CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
 	}
 
 	/**
