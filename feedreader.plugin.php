@@ -517,7 +517,8 @@ class FeedReader extends Plugin
 				$feed['guid'] = $item->getElementsByTagName('guid')->item(0)->nodeValue;
 			}
 			else {
-				Eventlog::log("No guid found in " . $dom->getElementsByTagName('title')->item(0)->nodeValue, "warning");
+				$feed['guid'] = Utils::slugify($feed['title'] . $feed['link']);
+				EventLog::log( _t('No GUID found in %1$s (from %2$s). A GUID was created automatically.', array($feed['title'], Utils::slugify($feed['link'])), __CLASS__), 'notice' );
 			}
 			if($item->getElementsByTagName('pubDate')->length > 0) {
 				$feed['published'] = $item->getElementsByTagName('pubDate')->item(0)->nodeValue;
@@ -581,6 +582,10 @@ class FeedReader extends Plugin
 			}
 			if($item->getElementsByTagName('id')->length > 0) {
 				$feed['guid'] = $item->getElementsByTagName('id')->item(0)->nodeValue;
+			}
+			else {
+				$feed['guid'] = Utils::slugify($feed['title'] . $feed['link']);
+				EventLog::log( _t('No GUID found in %1$s (from %2$s). A GUID was created automatically.', array($feed['title'], Utils::slugify($feed['link'])), __CLASS__), 'notice' );
 			}
 			if($item->getElementsByTagName('published')->length > 0) {
 				$feed['published'] = $item->getElementsByTagName('published')->item(0)->nodeValue;
