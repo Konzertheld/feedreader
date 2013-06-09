@@ -295,14 +295,10 @@ class FeedReader extends Plugin
 				// $ui->out();
 				// break;
 			case 'update':
-				$result = $this->filter_load_feeds(true);
-				if($result) {
-					Session::notice('Feeds Successfully Updated');
-				}
-				else {
-					Session::error('Feeds Did Not Successfully Update');
-				}
-				//@todo redirect
+				// Reset the cronjob so that it runs immediately
+				CronTab::delete_cronjob( 'feedreader' );
+				CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
+				Session::notice(_t("The cronjob has been triggered and the update is now running in the background.", __CLASS__));
 				break;
 			case 'import':
 				$ui = new FormUI( __CLASS__ );
