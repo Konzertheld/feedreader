@@ -215,15 +215,13 @@ class FeedReader extends Plugin
 	 */
 	public function action_block_content_readernav( $block )
 	{
-		$nav = Cache::get('feedreader_nav');
-		if($nav == null) {
-			$nav = $this->create_navigation();
-		}
+		$nav = $this->create_navigation();
 		$block->navigation = $nav;
 	}
 		
 	private function create_navigation()
 	{
+		//todo: replace by recursive function
 		$nav = array();
 
 		foreach(Vocabulary::get('feeds')->get_root_terms() as $term) {
@@ -242,23 +240,18 @@ class FeedReader extends Plugin
 				$nav[] = $this->term_to_menu($term);
 			}
 		}
-		Cache::set('feedreader_nav', $nav, 60 * 60 * 24 * 7);
 		
 		return $nav;
 	}
 	
 	private function term_to_menu($term)
 	{
-		$entry = Cache::get(array('feedreader_navitems', $term->term));
-		if($entry == null) {
-			$entry = array();
-			$entry['internal_url'] = URL::get('display_feedcontent', array('context' => 'feed', 'feedslug' => $term->term));
-			$entry['title'] = $term->term_display;
-			$entry['url'] = $term->info->url;
-			$entry['lastcheck'] = $term->info->lastcheck;
-			$entry['count'] = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => array($term))));
-			Cache::set(array('feedreader_navitems', $term->term), $entry, 60 * 60 * 24 * 7);
-		}
+		$entry = array();
+		$entry['internal_url'] = URL::get('display_feedcontent', array('context' => 'feed', 'feedslug' => $term->term));
+		$entry['title'] = $term->term_display;
+		$entry['url'] = $term->info->url;
+		$entry['lastcheck'] = $term->info->lastcheck;
+		$entry['count'] = $term->info->count;
 		return $entry;
 	}
 
@@ -465,6 +458,8 @@ class FeedReader extends Plugin
 		else {
 			// Everything is okay. Save and log success.
 			$this->replace( $term, $items );
+			$term->info->count = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => array($term))));
+			$term->update();
 			EventLog::log( _t( 'Updated feed %1$s', array($term->term), __CLASS__ ), 'info' );
 		}
 		
@@ -687,11 +682,6 @@ class FeedReader extends Plugin
 				$changed = true;
 			}
 		}
-		
-		if($changed){
-			// At least one item has changed. Expire the navigation cache for this feed.
-			Cache::expire(array('feedreader_navitems', $term->term));
-		}
 	}
 	
 	/**
@@ -719,7 +709,7 @@ class FeedReader extends Plugin
 				}
 			}
 			else return;
-			
+					
 			// Process "show read"
 			if(empty($form->show_read->value)) {
 				//$filters = array('user_filters' => array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist)));
@@ -778,11 +768,18 @@ class FeedReader extends Plugin
 				$post = Post::get(array('id' => $id));
 				if($post->status == Post::status('read')) {
 					$post->status = Post::status('unread');
+					$c = 1;
 				}
 				else {
 					$post->status = Post::status('read');
+					$c = -1;
 				}
 				if($post->update(true)) {
+					$terms = Vocabulary::get('feeds')->get_object_terms('post', $post->id);
+					foreach($terms as $term) {
+						$term->info->count += $c;
+						$term->update();
+					}
 					echo Post::status_name($post->status);
 				}
 				else {
