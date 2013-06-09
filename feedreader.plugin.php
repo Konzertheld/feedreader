@@ -410,7 +410,7 @@ class FeedReader extends Plugin
 		$feed_url = $term->info->url;
 		
 		if ( $feed_url == '' ) {
-			EventLog::log( _t('Feed $s is missing the URL. Feed deactivated.', array($term->term), __CLASS__), 'warning' );
+			EventLog::log( _t('Feed %s is missing the URL. Feed deactivated.', array($term->term), __CLASS__), 'warning' );
 			$term->info->broken = true;
 			$term->update();
 			return false;
@@ -473,7 +473,6 @@ class FeedReader extends Plugin
 	 * @return array Array of items.
 	 */
 	private function parse_rss ( DOMDocument $dom ) {
-		
 		// each item is an 'item' tag in RSS2
 		$items = $dom->getElementsByTagName('item');
 		
@@ -507,6 +506,14 @@ class FeedReader extends Plugin
 				// Item with no URL, something is wrong with this feed
 				return false;
 			}
+			if($item->getElementsByTagName('pubDate')->length > 0) {
+				$feed['published'] = HabariDateTime::date_create($item->getElementsByTagName('pubDate')->item(0)->nodeValue);
+			}
+			else {
+				// Item with no date, something is wrong with this feed
+				return false;
+			}
+			$feed['updated'] = $feed['published'];
 			if($item->getElementsByTagName('creator')->length > 0) {
 				// Wordpress-style author names
 				$feed['author'] = $item->getElementsByTagName('creator')->item(0)->nodeValue;
@@ -520,9 +527,6 @@ class FeedReader extends Plugin
 			else {
 				$feed['guid'] = Utils::slugify($feed['title'] . $feed['link']);
 				EventLog::log( _t('No GUID found in %1$s (from %2$s). A GUID was created automatically.', array($feed['title'], Utils::slugify($feed['link'])), __CLASS__), 'notice' );
-			}
-			if($item->getElementsByTagName('pubDate')->length > 0) {
-				$feed['published'] = $item->getElementsByTagName('pubDate')->item(0)->nodeValue;
 			}
 			
 			$feed_items[] = $feed;
@@ -572,6 +576,19 @@ class FeedReader extends Plugin
 				// Item with no URL, something is wrong with this feed
 				return false;
 			}
+			if($item->getElementsByTagName('published')->length > 0) {
+				$feed['published'] = HabariDateTime::date_create($item->getElementsByTagName('published')->item(0)->nodeValue);
+			}
+			else {
+				// Item with no date, something is wrong with this feed
+				return false;
+			}
+			if($item->getElementsByTagName('updated')->length > 0) {
+				$feed['updated'] = HabariDateTime::date_create($item->getElementsByTagName('updated')->item(0)->nodeValue);
+			}
+			else {
+				$feed['updated'] = $feed['published'];
+			}
 			if($item->getElementsByTagName('creator')->length > 0) {
 				// Wordpress-style author names
 				$feed['author'] = $item->getElementsByTagName('creator')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
@@ -585,12 +602,6 @@ class FeedReader extends Plugin
 			else {
 				$feed['guid'] = Utils::slugify($feed['title'] . $feed['link']);
 				EventLog::log( _t('No GUID found in %1$s (from %2$s). A GUID was created automatically.', array($feed['title'], Utils::slugify($feed['link'])), __CLASS__), 'notice' );
-			}
-			if($item->getElementsByTagName('published')->length > 0) {
-				$feed['published'] = $item->getElementsByTagName('published')->item(0)->nodeValue;
-			}
-			if($item->getElementsByTagName('updated')->length > 0) {
-				$feed['updated'] = $item->getElementsByTagName('updated')->item(0)->nodeValue;
 			}
 			
 			$feed_items[] = $feed;
@@ -613,28 +624,6 @@ class FeedReader extends Plugin
 				continue;
 			}
 			
-			// Create dates from date values. Handle missing and invalid dates.
-			if(isset($item["published"])) {
-				try {
-					$pubdate = HabariDateTime::date_create($item["published"])->int;
-				} catch(Exception $e) {
-					$pubdate = HabariDateTime::date_create()->int;
-				}
-			}
-			else {
-				$pubdate = HabariDateTime::date_create()->int;
-			}
-			if(isset($item["updated"])) {
-				try {
-					$updated = HabariDateTime::date_create($item["updated"])->int;
-				} catch(Exception $e) {
-					$updated = $pubdate;
-				}
-			}
-			else {
-				$updated = $pubdate;
-			}
-			
 			// Get existing post or create new one
 			$post = Post::get(array('all:info' => array('guid' => $item["guid"])));
 			if(!$post) {
@@ -643,26 +632,14 @@ class FeedReader extends Plugin
 				$post->user_id = 1;
 				$post->status = Post::status('unread');
 			}
-			else {
-				// Check if the post was modified
-				if($post->updated->int >= $updated) {
-					continue;
-				}
-			}
 			
 			// Save fields
 			$post->title = (!empty($item["title"])) ? $item["title"] : _t("Untitled", __CLASS__);
 			$post->content = $item["content"];
-			$post->updated = $updated;
-			$post->published = $pubdate;
-			//@todo This is bad because it creates duplicates for modified posts
-			if(empty($item["guid"])) {
-				$item["guid"] = Utils::slugify(md5($item["content"]));
-			}
+			$post->updated = $item["updated"]->int;
+			$post->pubdate = $item["published"]->int;
 			$post->info->guid = $item["guid"];
-			if(isset($item['link'])) {
-				$post->info->link = $item["link"];
-			}
+			$post->info->link = $item["link"];
 			if(isset($item['author'])) {
 				$post->info->author = $item["author"];
 			}
