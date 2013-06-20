@@ -478,13 +478,10 @@ class FeedReader extends Plugin
 			// Everything is okay. Save and log success.
 			$this->replace( $term, $items );
 			$term->info->count = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => array($term))));
+			$term->info->lastcheck = HabariDateTime::date_create()->int;
 			$term->update();
-			EventLog::log( _t( 'Updated feed %1$s', array($term->term), __CLASS__ ), 'info' );
+			EventLog::log( _t( 'Successfully updated feed %1$s', array($term->term), __CLASS__ ), 'info' );
 		}
-		
-		// Everything is done. Save the time so we don't check this feed again soon
-		$term->info->lastcheck = HabariDateTime::date_create()->int;
-		$term->update();
 	}
 	
 	/**
