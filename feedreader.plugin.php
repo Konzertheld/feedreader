@@ -382,17 +382,7 @@ class FeedReader extends Plugin
 				Eventlog::log("Skipped root group " . $term->term);
 				continue;
 			}
-			
-			if(isset($term->info->lastcheck) && HabariDateTime::date_create()->int - HabariDateTime::date_create($term->info->lastcheck)->int < 600) {
-				// Don't check more than every 10 minutes
-				continue;
-			}
-			
-			if(isset($term->info->broken) && $term->info->broken) {
-				// Feed was marked as broken and needs manual fixing
-				continue;
-			}
-			
+					
 			$this->update_feed($term);
 		}
 		
@@ -405,8 +395,18 @@ class FeedReader extends Plugin
 		return $result;		// only change a cron result to false when it fails
 	}
 	
-	public function update_feed($term)
-	{
+	public function update_feed($term, $force = false)
+	{	
+		if(!$force && isset($term->info->lastcheck) && HabariDateTime::date_create()->int - HabariDateTime::date_create($term->info->lastcheck)->int < 600) {
+			// Don't check more than every 10 minutes
+			return false;
+		}
+		
+		if(!$force && isset($term->info->broken) && $term->info->broken) {
+			// Feed was marked as broken and needs manual fixing
+			return false;
+		}
+		
 		$feed_url = $term->info->url;
 		
 		if ( $feed_url == '' ) {
