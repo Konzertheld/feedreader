@@ -419,7 +419,7 @@ class FeedReader extends Plugin
 		// load the XML data
 		$xml = RemoteRequest::get_contents( $feed_url );
 		if ( !$xml ) {
-			EventLog::log( _t('Unable to fetch feed %1$s data. Feed deactivated.', array($term->term), __CLASS__), 'warning' );
+			EventLog::log( _t('Unable to fetch feed %1$s data from %2$s. Feed deactivated.', array($term->term, $feed_url), __CLASS__), 'warning' );
 			$term->info->broken = true;
 			$term->update();
 			return false;
@@ -659,6 +659,7 @@ class FeedReader extends Plugin
 	
 	/**
 	 * Grab the posts requested by the matched rewrite rule and display them in the theme
+	 * Process mark as read
 	 */
 	public function theme_route_display_feedcontent($theme, $params)
 	{
@@ -696,6 +697,12 @@ class FeedReader extends Plugin
 			// Process "mark ALL as read"
 			if(!empty($form->mark_all_read->value)) {
 				$filters['nolimit'] = 1;
+				$term->info->count = 0;
+				$term->update();
+				foreach($term->descendants() as $d) {
+					$d->info->count = 0;
+					$d->update();
+				}
 			}
 			
 			// Get posts
