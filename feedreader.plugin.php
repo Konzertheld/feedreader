@@ -429,13 +429,31 @@ class FeedReader extends Plugin
 		@$dom->loadXML( $xml );
 		
 		if( $dom->getElementsByTagName('rss')->length > 0 ) {
-			if( !$force && $dom->getElementsByTagName('updated')->length > 0 && HabariDateTime::date_create($item->getElementsByTagName('updated')->item(0)->nodeValue)->int < HabariDateTime::date_create($term->info->lastcheck) ) {
-				EventLog::log( _t('Feed %s was not updated since the last check.', array($term->term), __CLASS__), 'info' );
-				return false;
+			// Check if the feed itself says it wasn't updated
+			if( !$force && $dom->getElementsByTagName('pubDate')->length > 0 ) {
+				try {
+					$feed_updated = HabariDateTime::date_create($dom->getElementsByTagName('pubDate')->item(0)->nodeValue);
+					if( $feed_updated->int < HabariDateTime::date_create($term->info->lastcheck)->int ) {
+						EventLog::log( _t('Feed %s was not updated since the last check.', array($term->term), __CLASS__), 'info' );
+						return false;
+					}
+				}
+				catch(Exception $e) { /* discard invalid dates */ }
 			}
 			$items = $this->parse_rss( $dom );
 		}
 		else if( $dom->getElementsByTagName('feed')->length > 0 ) {
+			// Check if the feed itself says it wasn't updated
+			if( !$force && $dom->getElementsByTagName('updated')->length > 0 ) {
+				try {
+					$feed_updated = HabariDateTime::date_create($dom->getElementsByTagName('updated')->item(0)->nodeValue);
+					if( $feed_updated->int < HabariDateTime::date_create($term->info->lastcheck)->int ) {
+						EventLog::log( _t('Feed %s was not updated since the last check.', array($term->term), __CLASS__), 'info' );
+						return false;
+					}
+				}
+				catch(Exception $e) { /* discard invalid dates */ }
+			}
 			$items = $this->parse_atom( $dom );
 		}
 		else {
@@ -510,7 +528,13 @@ class FeedReader extends Plugin
 				return false;
 			}
 			if($item->getElementsByTagName('pubDate')->length > 0) {
-				$feed['published'] = HabariDateTime::date_create($item->getElementsByTagName('pubDate')->item(0)->nodeValue);
+				try {
+					$feed['published'] = HabariDateTime::date_create($item->getElementsByTagName('pubDate')->item(0)->nodeValue);
+				}
+				catch(Exception $e) {
+					// Invalid date format
+					return false;
+				}
 			}
 			else {
 				// Item with no date, something is wrong with this feed
@@ -580,14 +604,26 @@ class FeedReader extends Plugin
 				return false;
 			}
 			if($item->getElementsByTagName('published')->length > 0) {
-				$feed['published'] = HabariDateTime::date_create($item->getElementsByTagName('published')->item(0)->nodeValue);
+				try {
+					$feed['published'] = HabariDateTime::date_create($item->getElementsByTagName('published')->item(0)->nodeValue);
+				}
+				catch(Exception $e) {
+					// Invalid date format
+					return false;
+				}
 			}
 			else {
 				// Item with no date, something is wrong with this feed
 				return false;
 			}
 			if($item->getElementsByTagName('updated')->length > 0) {
-				$feed['updated'] = HabariDateTime::date_create($item->getElementsByTagName('updated')->item(0)->nodeValue);
+				try {
+					$feed['updated'] = HabariDateTime::date_create($item->getElementsByTagName('updated')->item(0)->nodeValue);
+				}
+				catch(Exception $e) {
+					// Invalid date format
+					return false;
+				}
 			}
 			else {
 				$feed['updated'] = $feed['published'];
