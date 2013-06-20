@@ -585,7 +585,7 @@ class FeedReader extends Plugin
 				$feed['title'] = $item->getElementsByTagName('title')->item(0)->nodeValue;
 			}
 			else {
-				// Item with no title, something is wrong with this feed
+				EventLog::log( _t("Item with no title, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			if($item->getElementsByTagName('content')->length > 0) {
@@ -596,14 +596,14 @@ class FeedReader extends Plugin
 				$feed['content'] = $item->getElementsByTagName('summary')->item(0)->nodeValue;
 			}
 			else {
-				// Item with no content, something is wrong with this feed
+				EventLog::log( _t("Item with no content, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			if($item->getElementsByTagName('link')->length > 0) {
 				$feed['link'] = $item->getElementsByTagName('link')->item(0)->getAttribute('href');
 			}
 			else {
-				// Item with no URL, something is wrong with this feed
+				EventLog::log( _t("Item with no URL, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			if($item->getElementsByTagName('published')->length > 0) {
@@ -616,7 +616,7 @@ class FeedReader extends Plugin
 				}
 			}
 			else {
-				// Item with no date, something is wrong with this feed
+				EventLog::log( _t("Item with no date, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			if($item->getElementsByTagName('updated')->length > 0) {
