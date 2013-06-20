@@ -374,12 +374,11 @@ class FeedReader extends Plugin
 	{
 		$feedterms = Vocabulary::get('feeds')->get_tree();
 		$menu = Vocabulary::get('FeedReader');
-		Eventlog::log("Updating feeds...");
+		Eventlog::log( _t("Updating feeds...", __CLASS__), 'info' );
 
 		foreach( $feedterms as $term ) {
 			if(count($term->descendants()) > 0) {
 				// Just a group term
-				Eventlog::log("Skipped root group " . $term->term);
 				continue;
 			}
 					
@@ -390,7 +389,7 @@ class FeedReader extends Plugin
 		$this->create_navigation();
 		
 		// log that we finished
-		EventLog::log( _t( 'Finished processing %1$d feed(s).', array(count($feedterms)), __CLASS__), 'info');
+		EventLog::log( _t( 'Finished processing %1$d feed term(s).', array(count($feedterms)), __CLASS__), 'info');
 				
 		return $result;		// only change a cron result to false when it fails
 	}
@@ -429,10 +428,14 @@ class FeedReader extends Plugin
 		// @ to hide parse errors
 		@$dom->loadXML( $xml );
 		
-		if ( $dom->getElementsByTagName('rss')->length > 0 ) {
+		if( $dom->getElementsByTagName('rss')->length > 0 ) {
+			if( !$force && $dom->getElementsByTagName('updated')->length > 0 && HabariDateTime::date_create($item->getElementsByTagName('updated')->item(0)->nodeValue)->int < HabariDateTime::date_create($term->info->lastcheck) ) {
+				EventLog::log( _t('Feed %s was not updated since the last check.', array($term->term), __CLASS__), 'info' );
+				return false;
+			}
 			$items = $this->parse_rss( $dom );
 		}
-		else if ( $dom->getElementsByTagName('feed')->length > 0 ) {
+		else if( $dom->getElementsByTagName('feed')->length > 0 ) {
 			$items = $this->parse_atom( $dom );
 		}
 		else {
