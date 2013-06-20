@@ -398,11 +398,13 @@ class FeedReader extends Plugin
 	{	
 		if(!$force && isset($term->info->lastcheck) && HabariDateTime::date_create()->int - HabariDateTime::date_create($term->info->lastcheck)->int < 600) {
 			// Don't check more than every 10 minutes
+			EventLog::log( _t('Feed %s skipped because the last check was less than 10 minutes ago.', array($term->term), __CLASS__), 'info' );
 			return false;
 		}
 		
 		if(!$force && isset($term->info->broken) && $term->info->broken) {
 			// Feed was marked as broken and needs manual fixing
+			EventLog::log( _t('Feed %s skipped because the last check was not successful.', array($term->term), __CLASS__), 'info' );
 			return false;
 		}
 		
@@ -725,11 +727,9 @@ class FeedReader extends Plugin
 					
 			// Process "show read"
 			if(empty($form->show_read->value)) {
-				//$filters = array('user_filters' => array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist)));
 				$filters = array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist));
 			}
 			else {
-				//$filters = array('user_filters' => array('status' => array(Post::status('unread'), Post::status('read')), 'vocabulary' => array('feeds:term' => $termlist)));
 				$filters = array('status' => array(Post::status('unread'), Post::status('read')), 'vocabulary' => array('feeds:term' => $termlist));
 			}
 			
@@ -752,7 +752,6 @@ class FeedReader extends Plugin
 				foreach($posts as $post) {
 					$post->status = Post::status('read');
 					$post->update();
-					//Utils::debug($post);
 				}
 			}
 			
