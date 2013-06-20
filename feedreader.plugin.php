@@ -615,10 +615,6 @@ class FeedReader extends Plugin
 					return false;
 				}
 			}
-			else {
-				EventLog::log( _t("Item with no date, something is wrong with this feed", __CLASS__), 'err');
-				return false;
-			}
 			if($item->getElementsByTagName('updated')->length > 0) {
 				try {
 					$feed['updated'] = HabariDateTime::date_create($item->getElementsByTagName('updated')->item(0)->nodeValue);
@@ -627,9 +623,16 @@ class FeedReader extends Plugin
 					// Invalid date format
 					return false;
 				}
+				if(!isset($feed['published'])) {
+					$feed['published'] = $feed['updated'];
+				}
+			}
+			elseif(isset($feed['published'])) {
+				$feed['updated'] = $feed['published'];
 			}
 			else {
-				$feed['updated'] = $feed['published'];
+				EventLog::log( _t("Item with no date, something is wrong with this feed", __CLASS__), 'err');
+				return false;
 			}
 			if($item->getElementsByTagName('creator')->length > 0) {
 				// Wordpress-style author names
@@ -706,6 +709,7 @@ class FeedReader extends Plugin
 	public function theme_route_display_feedcontent($theme, $params)
 	{
 		$term = Vocabulary::get('feeds')->get_term($params['feedslug']);
+		//$this->update_feed($term, true);
 		if($term) {
 			// Add action bar form
 			$form = new FormUI(__CLASS__);
