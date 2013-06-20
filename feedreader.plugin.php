@@ -594,6 +594,10 @@ class FeedReader extends Plugin
 			if($item->getElementsByTagName('content')->length > 0) {
 				$feed['content'] = $item->getElementsByTagName('content')->item(0)->nodeValue;
 			}
+			elseif($item->getElementsByTagName('summary')->length > 0) {
+				// Google groups style
+				$feed['content'] = $item->getElementsByTagName('summary')->item(0)->nodeValue;
+			}
 			else {
 				// Item with no content, something is wrong with this feed
 				return false;
