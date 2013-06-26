@@ -60,15 +60,13 @@ class FeedReader extends Plugin
 	
 	private function install()
 	{
-		// Add a periodical execution event to be triggered hourly
-		CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
-		// Log the cron creation event
-		EventLog::log('Added hourly cron for feed updates.');
-		// Create vocabulary for the feeds
-		Vocabulary::create(array('description' => 'Feeds to collect posts from', 'name' => 'feeds', 'features' => array('hierarchical')));
-		// Add read and unread statuses
+		// Add read and unread statuses and vocabulary to store feeds
 		Post::add_new_status('read');
 		Post::add_new_status('unread');
+		Vocabulary::create(array('description' => 'Feeds to collect posts from', 'name' => 'feeds', 'features' => array('hierarchical')));
+		// Add a periodical execution event to be triggered hourly
+		CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
+		EventLog::log('Added hourly cron for feed updates.');
 	}
 	
 	private function uninstall()
