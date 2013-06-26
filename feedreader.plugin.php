@@ -745,6 +745,7 @@ class FeedReader extends Plugin
 	 */
 	public function theme_route_display_feedcontent($theme, $params)
 	{
+		$redirect = "";
 		$term = Vocabulary::get('feeds')->get_term($params['feedslug']);
 		//$this->update_feed($term, true);
 		if($term) {
@@ -767,14 +768,6 @@ class FeedReader extends Plugin
 			}
 			else return;
 					
-			// Process "show read"
-			if(empty($form->show_read->value)) {
-				$filters = array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist));
-			}
-			else {
-				$filters = array('status' => array(Post::status('unread'), Post::status('read')), 'vocabulary' => array('feeds:term' => $termlist));
-			}
-			
 			// Process "mark ALL as read"
 			if(!empty($form->mark_all_read->value)) {
 				$filters['nolimit'] = 1;
@@ -784,6 +777,24 @@ class FeedReader extends Plugin
 					$d->info->count = 0;
 					$d->update();
 				}
+				
+				// Proceed to next feed / group
+				foreach($term->siblings() as $s) {
+					// todo: this is a poor solution. we will get rid of it as soon as we get rid of all the feed/group differenciation
+					if($term->term != $s->term && $s->info->count > 0 && count($s->descendants()) == 0) {
+						$redirect = URL::get('display_feedcontent', array('context' => 'feed', 'feedslug' => $s->term));
+						break;
+					}
+				}
+			}
+			
+			// Create filters
+			if(empty($form->show_read->value)) {
+				// Process "show read"
+				$filters = array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist));
+			}
+			else {
+				$filters = array('status' => array(Post::status('unread'), Post::status('read')), 'vocabulary' => array('feeds:term' => $termlist));
 			}
 			
 			// Get posts
@@ -795,6 +806,10 @@ class FeedReader extends Plugin
 					$post->status = Post::status('read');
 					$post->update();
 				}
+			}
+			
+			if(!$redirect == "") {
+				Utils::redirect($redirect);
 			}
 			
 			$theme->feedterm = $term;
