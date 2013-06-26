@@ -39,11 +39,11 @@
 
 	<div class="head clear">
 		<span class="checkbox pct5">&nbsp;</span>
-		<span class="time pct15"><?php _e('Last Update'); ?></span>
-		<span class="pct15"><?php _e('Group'); ?></span>
+		<span class="time pct20"><?php _e('Last Update'); ?></span>
+		<span class="pct5"><?php _e('Broken'); ?></span>
+		<span class="pct20"><?php _e('Group'); ?></span>
 		<span class="pct5"><?php _e('Items'); ?></span>
-		<span class="pct30"><?php _e('URL'); ?></span>
-		<span class="pct25"><?php _e('Title'); ?></span>
+		<span class="pct45"><?php _e('Title'); ?></span>
 	</div>
 	
 	<?php $theme->display('admin.feeds_items'); ?>

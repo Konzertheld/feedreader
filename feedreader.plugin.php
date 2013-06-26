@@ -146,6 +146,8 @@ class FeedReader extends Plugin
 						continue;
 					}
 					$item['group'] = $term;
+					$item['brokencount'] = $d->info->broken;
+					$item['brokentext'] = $d->info->broken_text;
 					
 					$feeds[] = $item;
 				}
@@ -156,6 +158,8 @@ class FeedReader extends Plugin
 						continue;
 					}
 				$feeds[] = $item;
+				$item['brokencount'] = $term->info->broken;
+				$item['brokentext'] = $term->info->broken_text;
 			}
 		}
 		
@@ -269,6 +273,7 @@ class FeedReader extends Plugin
 			// Add a 'configure' action in the admin's list of plugins
 			//$actions['configure']= _t('Configure');
 			$actions['update'] = _t('Update All Now');
+			$actions['resetbroken'] = _t('Reset all broken feeds');
 			$actions['import'] = _t('Import OPML file');
 			$actions['reinstall'] = _t('Re-install (DANGEROUS)');
 		}
@@ -299,6 +304,21 @@ class FeedReader extends Plugin
 				CronTab::delete_cronjob( 'feedreader' );
 				CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
 				Session::notice(_t("The cronjob has been triggered and the update is now running in the background.", __CLASS__));
+				break;
+			case 'resetbroken':
+				// Reset broken counters and messages
+				$feedterms = Vocabulary::get('feeds')->get_tree();
+				foreach($feedterms as $term) {
+					if(count($term->descendants()) > 0) {
+						// Just a group term
+						continue;
+					}
+					$term->info->broken = 0;
+					$term->info->broken_text = "";
+					$term->update();
+				}
+				EventLog::log( _t("All feeds have been set to ok.", __CLASS__), 'info' );
+				Session::notice( _t("All feeds have been set to ok.", __CLASS__) );
 				break;
 			case 'import':
 				$ui = new FormUI( __CLASS__ );
@@ -402,17 +422,18 @@ class FeedReader extends Plugin
 			return false;
 		}
 		
-		if(!$force && isset($term->info->broken) && $term->info->broken) {
+		if(!$force && isset($term->info->broken) && $term->info->broken >= 3) {
 			// Feed was marked as broken and needs manual fixing
-			EventLog::log( _t('Feed %s skipped because the last check was not successful.', array($term->term), __CLASS__), 'info' );
+			EventLog::log( _t('Feed %s skipped because the last three checks were not successful.', array($term->term), __CLASS__), 'info' );
 			return false;
 		}
 		
 		$feed_url = $term->info->url;
 		
 		if ( $feed_url == '' ) {
-			EventLog::log( _t('Feed %s is missing the URL. Feed deactivated.', array($term->term), __CLASS__), 'warning' );
-			$term->info->broken = true;
+			$term->info->broken += 1;
+			EventLog::log( _t('Feed %1$s is missing the URL. %2$d more tries until it will be deactivated.', array($term->term, 3 - $term->info->broken), __CLASS__), 'warning' );
+			$term->info->broken_text = _t("URL is missing", __CLASS__);
 			$term->update();
 			return false;
 		}
@@ -420,8 +441,9 @@ class FeedReader extends Plugin
 		// load the XML data
 		$xml = RemoteRequest::get_contents( $feed_url );
 		if ( !$xml ) {
-			EventLog::log( _t('Unable to fetch feed %1$s data from %2$s. Feed deactivated.', array($term->term, $feed_url), __CLASS__), 'warning' );
-			$term->info->broken = true;
+			$term->info->broken += 1;
+			EventLog::log( _t('Unable to fetch feed %1$s data from %2$s. %3$d more tries until it will be deactivated.', array($term->term, $feed_url, 3 - $term->info->broken), __CLASS__), 'warning' );
+			$term->info->broken_text = _t("Unable to fetch data", __CLASS__);
 			$term->update();
 			return false;
 		}
@@ -470,7 +492,8 @@ class FeedReader extends Plugin
 		else {
 			// it's an unsupported format
 			EventLog::log( _t('Feed %1$s is an unsupported format and has been deactivated.', array($term->term), __CLASS__), 'warning' );
-			$term->info->broken = true;
+			$term->info->broken_text = _t("Unsupported format", __CLASS__);
+			$term->info->broken = 3;
 			$term->update();
 			return false;
 		}
@@ -488,6 +511,7 @@ class FeedReader extends Plugin
 			$this->replace( $term, $items );
 			$term->info->count = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => array($term))));
 			$term->info->lastcheck = HabariDateTime::date_create()->int;
+			$term->info->broken = 0;
 			$term->update();
 			EventLog::log( _t( 'Successfully updated feed %1$s', array($term->term), __CLASS__ ), 'info' );
 		}
