@@ -432,21 +432,30 @@ class FeedReader extends Plugin
 		
 		if( $dom->getElementsByTagName('rss')->length > 0 ) {
 			// Check if the feed itself says it wasn't updated
-			if( !$force && $dom->getElementsByTagName('pubDate')->length > 0 ) {
-				try {
-					$feed_updated = HabariDateTime::date_create($dom->getElementsByTagName('pubDate')->item(0)->nodeValue);
-					if( $feed_updated->int < HabariDateTime::date_create($term->info->lastcheck)->int ) {
-						EventLog::log( _t('Feed %s was not updated since the last check.', array($term->term), __CLASS__), 'info' );
-						return false;
-					}
+			if( !$force ) {
+				if( $dom->getElementsByTagName('pubDate')->length > 0 && $dom->getElementsByTagName('pubDate')->item(0)->parentNode->tagName == "rss") {
+					$feed_updated = $dom->getElementsByTagName('pubDate')->item(0)->nodeValue;
 				}
-				catch(Exception $e) { /* discard invalid dates */ }
+				else if( $dom->getElementsByTagName('lastBuildDate')->length > 0 && $dom->getElementsByTagName('lastBuildDate')->item(0)->parentNode->tagName == "rss") {
+					// Wordpress style
+					$feed_updated = $dom->getElementsByTagName('lastBuildDate')->item(0)->nodeValue;
+				}
+				if(isset($feed_updated)) {
+					try {
+						$feed_updated = HabariDateTime::date_create($feed_updated);
+						if( $feed_updated->int < HabariDateTime::date_create($term->info->lastcheck)->int ) {
+							EventLog::log( _t('Feed %s was not updated since the last check.', array($term->term), __CLASS__), 'info' );
+							return false;
+						}
+					}
+					catch(Exception $e) { /* discard invalid dates */ }
+				}
 			}
 			$items = $this->parse_rss( $dom );
 		}
 		else if( $dom->getElementsByTagName('feed')->length > 0 ) {
 			// Check if the feed itself says it wasn't updated
-			if( !$force && $dom->getElementsByTagName('updated')->length > 0 ) {
+			if( !$force && $dom->getElementsByTagName('updated')->length > 0 && $dom->getElementsByTagName('updated')->item(0)->parentNode->tagName == "feed" ) {
 				try {
 					$feed_updated = HabariDateTime::date_create($dom->getElementsByTagName('updated')->item(0)->nodeValue);
 					if( $feed_updated->int < HabariDateTime::date_create($term->info->lastcheck)->int ) {
