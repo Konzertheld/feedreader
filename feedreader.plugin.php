@@ -6,8 +6,7 @@
  */
 
 class FeedReader extends Plugin
-{ 
-
+{
 	/**
 	 * Plugin init action, executed when plugins are initialized.
 	 */ 
@@ -451,41 +450,10 @@ class FeedReader extends Plugin
 		@$dom->loadXML( $xml );
 		
 		if( $dom->getElementsByTagName('rss')->length > 0 ) {
-			// Check if the feed itself says it wasn't updated
-			if( !$force ) {
-				if( $dom->getElementsByTagName('pubDate')->length > 0 && $dom->getElementsByTagName('pubDate')->item(0)->parentNode->tagName == "rss") {
-					$feed_updated = $dom->getElementsByTagName('pubDate')->item(0)->nodeValue;
-				}
-				else if( $dom->getElementsByTagName('lastBuildDate')->length > 0 && $dom->getElementsByTagName('lastBuildDate')->item(0)->parentNode->tagName == "rss") {
-					// Wordpress style
-					$feed_updated = $dom->getElementsByTagName('lastBuildDate')->item(0)->nodeValue;
-				}
-				if(isset($feed_updated)) {
-					try {
-						$feed_updated = HabariDateTime::date_create($feed_updated);
-						if( $feed_updated->int < HabariDateTime::date_create($term->info->lastcheck)->int ) {
-							EventLog::log( _t('Feed %s was not updated since the last check.', array($term->term), __CLASS__), 'info' );
-							return false;
-						}
-					}
-					catch(Exception $e) { /* discard invalid dates */ }
-				}
-			}
-			$items = $this->parse_rss( $dom );
+			$type = "rss";
 		}
 		else if( $dom->getElementsByTagName('feed')->length > 0 ) {
-			// Check if the feed itself says it wasn't updated
-			if( !$force && $dom->getElementsByTagName('updated')->length > 0 && $dom->getElementsByTagName('updated')->item(0)->parentNode->tagName == "feed" ) {
-				try {
-					$feed_updated = HabariDateTime::date_create($dom->getElementsByTagName('updated')->item(0)->nodeValue);
-					if( $feed_updated->int < HabariDateTime::date_create($term->info->lastcheck)->int ) {
-						EventLog::log( _t('Feed %s was not updated since the last check.', array($term->term), __CLASS__), 'info' );
-						return false;
-					}
-				}
-				catch(Exception $e) { /* discard invalid dates */ }
-			}
-			$items = $this->parse_atom( $dom );
+			$type = "atom";
 		}
 		else {
 			// it's an unsupported format
@@ -496,6 +464,38 @@ class FeedReader extends Plugin
 			return false;
 		}
 		
+		// Check if the feed itself says it wasn't updated
+		$term_lastcheck = $term->info->lastcheck;
+		if( isset($term_lastcheck) && !$force ) {
+			if( $dom->getElementsByTagName('pubDate')->length > 0 && $dom->getElementsByTagName('pubDate')->item(0)->parentNode->tagName == "rss") {
+				$feed_updated = $dom->getElementsByTagName('pubDate')->item(0)->nodeValue;
+			}
+			else if( $dom->getElementsByTagName('lastBuildDate')->length > 0 && $dom->getElementsByTagName('lastBuildDate')->item(0)->parentNode->tagName == "rss") {
+				// Wordpress style
+				$feed_updated = $dom->getElementsByTagName('lastBuildDate')->item(0)->nodeValue;
+			}
+			else if( $dom->getElementsByTagName('updated')->length > 0 && $dom->getElementsByTagName('updated')->item(0)->parentNode->tagName == "feed") {
+				$feed_updated = $dom->getElementsByTagName('updated')->item(0)->nodeValue;
+			}
+			if(isset($feed_updated)) {
+				try {
+					$feed_updated = HabariDateTime::date_create($feed_updated);
+					if( $feed_updated->int < HabariDateTime::date_create($term->info->lastcheck)->int ) {
+						EventLog::log( _t('Feed %s was not updated since the last check.', array($term->term), __CLASS__), 'info' );
+						return false;
+					}
+				}
+				catch(Exception $e) { /* discard invalid dates */ }
+			}
+		}
+		
+		if($type == "rss") {
+			$items = $this->parse_rss( $dom );
+		}
+		else if($type == "atom") {
+			$items = $this->parse_atom( $dom );
+		}
+
 		// Save the feed title
 		$term->term_display = $dom->getElementsByTagName('title')->item(0)->nodeValue;
 		
