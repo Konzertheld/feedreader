@@ -391,7 +391,7 @@ class FeedReader extends Plugin
 	{
 		$feedterms = Vocabulary::get('feeds')->get_tree();
 		$menu = Vocabulary::get('FeedReader');
-		Eventlog::log( _t("Updating feeds...", __CLASS__), 'info' );
+		Eventlog::log( _t("Updating feeds...", __CLASS__), 'debug' );
 
 		foreach( $feedterms as $term ) {
 			if(count($term->descendants()) > 0) {
@@ -415,13 +415,13 @@ class FeedReader extends Plugin
 	{	
 		if(!$force && isset($term->info->lastcheck) && HabariDateTime::date_create()->int - HabariDateTime::date_create($term->info->lastcheck)->int < 600) {
 			// Don't check more than every 10 minutes
-			EventLog::log( _t('Feed %s skipped because the last check was less than 10 minutes ago.', array($term->term), __CLASS__), 'info' );
+			EventLog::log( _t('Feed %s skipped because the last check was less than 10 minutes ago.', array($term->term), __CLASS__), 'debug' );
 			return false;
 		}
 		
 		if(!$force && isset($term->info->broken) && $term->info->broken >= 3) {
 			// Feed was marked as broken and needs manual fixing
-			EventLog::log( _t('Feed %s skipped because the last three checks were not successful.', array($term->term), __CLASS__), 'info' );
+			EventLog::log( _t('Feed %s skipped because the last three checks were not successful.', array($term->term), __CLASS__), 'notice' );
 			return false;
 		}
 		
