@@ -1,0 +1,15 @@
+#page .dropbutton .first-child input[type=submit] {
+	background: url(images/arrowdown.png) right 6px no-repeat;
+}
+#page .dropbutton input[type=submit] {
+	width: 100%;
+	border: none;
+	background: #333;
+	border-radius: 0;
+	-webkit-border-radius: 0;
+	-moz-border-radius: 0;
+}
+
+#page .dropbutton input[type=submit]:hover {
+	border: none;
+}

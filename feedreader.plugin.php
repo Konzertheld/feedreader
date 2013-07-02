@@ -101,6 +101,13 @@ class FeedReader extends Plugin
 		return true;
 	}
 	 
+	public function action_admin_header($theme)
+	{
+		if ( $theme->page == 'manage_feeds' ) {
+			Stack::add('admin_stylesheet', array($this->get_url() . '/admin.css', 'screen'));
+		}
+	}
+	
 	/**
 	 * Admin: Display page
 	 */
