@@ -11,7 +11,7 @@
 			<span class="pct5 minor"><span>&nbsp;</span></span>
 			<span class="pct70 minor"><span><?php if(isset($feed['url'])) echo $feed['url']; else echo "&nbsp;"; ?></span></span>
 			<span class="pct5 minor"><span>&nbsp;</span></span>
-			<span class="pct20 minor error" style="text-align:right;"><span><?php if(isset($feed['brokentext'])) echo $feed['brokentext']; else echo "&nbsp;"; ?></span></span>
+			<span class="pct20 minor error feederror"><span><?php if(isset($feed['brokentext'])) echo $feed['brokentext']; else echo "&nbsp;"; ?></span></span>
 		</div>
 	</div>
 <?php endforeach; ?>

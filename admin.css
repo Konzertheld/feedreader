@@ -13,3 +13,7 @@
 #page .dropbutton input[type=submit]:hover {
 	border: none;
 }
+
+.feederror {
+	text-align: right;
+}
