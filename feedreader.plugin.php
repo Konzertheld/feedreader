@@ -146,37 +146,10 @@ class FeedReader extends Plugin
 		$feeds = array();
 		$groups = array();
 		$groups[] = "all";
-		
 		foreach($vocab->get_root_terms() as $term) {
-			if(count($term->descendants()) > 0) {
-				$groups[] = $term->term_display;
-				// Cheesy check if the selected group is the current one that we just added to the list
-				if($handler->handler_vars['group'] != 0 && $handler->handler_vars['group'] != count($groups) - 1) {
-					continue;
-				}
-				foreach($term->descendants() as $d) {
-					$item = $this->term_to_menu($d);
-					if(($handler->handler_vars['items'] == 1 && $item['count'] > 0) || ($handler->handler_vars['items'] == 2 && $item['count'] == 0)) {
-						continue;
-					}
-					$item['group'] = $term;
-					$item['brokencount'] = $d->info->broken;
-					$item['brokentext'] = $d->info->broken_text;
-					
-					$feeds[] = $item;
-				}
-			}
-			else {
-				$item = $this->term_to_menu($term);
-				if(($handler->handler_vars['items'] == 1 && $item['count'] > 0) || ($handler->handler_vars['items'] == 2 && $item['count'] == 0)) {
-						continue;
-					}
-				$feeds[] = $item;
-				$item['brokencount'] = $term->info->broken;
-				$item['brokentext'] = $term->info->broken_text;
-			}
+			$feeds = $this->collect_feeds($feeds, $groups, $term);
 		}
-		
+
 		// Display
 		$theme->feeds = $feeds;
 		$theme->groups = $groups;
@@ -186,6 +159,55 @@ class FeedReader extends Plugin
 	 
 		// End everything
 		exit;
+	}
+	
+	function collect_feeds($feeds, &$groups, $term, $parent = null)
+	{
+		try {
+			$date = HabariDateTime::date_create($_POST['updated_before'])->int;
+		} catch(Exception $e) {}
+		
+		if(count($term->descendants()) > 0) {
+			$groups[$term->term] = $term->term_display;
+			// // Cheesy check if the selected group is the current one that we just added to the list
+			// if($handler->handler_vars['group'] != 0 && $handler->handler_vars['group'] != count($groups) - 1) {
+				// continue;
+			// }
+			foreach($term->descendants() as $d) {
+				$feeds = $this->collect_feeds($feeds, $groups, $d, $term);
+			}
+		}
+		else {
+			$item = $this->term_to_menu($term);
+			
+			// Unread count filter
+			if(isset($_POST['filter']) && (($_POST['items'] == 1 && $item['count'] > 0) || ($_POST['items'] == 2 && $item['count'] == 0))) {
+				return $feeds;
+			}
+			// Date filter
+			if(isset($_POST['filter']) && isset($date) && (int) $item['lastcheck'] >= $date) {
+				return $feeds;
+			}
+			// Broken filter
+			if(isset($_POST['filter']) && isset($_POST['only_broken']) && (!isset($term->info->broken) || empty($term->info->broken) || $term->info->broken == 0)) {
+				return $feeds;
+			}
+			// Regex filter
+			if(isset($_POST['filter']) && isset($_POST['title_regex']) && $_POST['title_regex'] != _t("title regex filter", __CLASS__) && !preg_match($_POST['title_regex'], $item['title'], $dummy)) {
+				return $feeds;
+			}
+			// Group filter
+			if(isset($_POST['filter']) && isset($_POST['group']) && $_POST['group'] !== "0" && (!isset($parent) || $parent->term != $_POST['group'])) {
+				return $feeds;
+			}
+			
+			$item['group'] = $parent;
+			$item['brokencount'] = $term->info->broken;
+			$item['brokentext'] = $term->info->broken_text;
+			
+			$feeds[] = $item;
+		}
+		return $feeds;
 	}
 	
 	/**
