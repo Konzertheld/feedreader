@@ -748,6 +748,15 @@ class FeedReader extends Plugin
 	}
 	
 	/**
+	 * Add the posts to the blog home and it's pagination pages
+	 */
+	public function filter_template_user_filters( $filters ) 
+	{
+		$filters['status'] = array('unread');
+		return $filters;
+	}
+	
+	/**
 	 * Grab the posts requested by the matched rewrite rule and display them in the theme
 	 * Process mark as read and all the other action bar actions
 	 */
