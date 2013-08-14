@@ -746,7 +746,7 @@ class FeedReader extends Plugin
 	
 	/**
 	 * Grab the posts requested by the matched rewrite rule and display them in the theme
-	 * Process mark as read
+	 * Process mark as read and all the other action bar actions
 	 */
 	public function theme_route_display_feedcontent($theme, $params)
 	{
@@ -759,7 +759,14 @@ class FeedReader extends Plugin
 			$form->append('submit', 'mark_page_read', 'Mark page read');
 			$form->append('submit', 'mark_all_read', 'Mark all read');
 			$form->append('submit', 'show_read', 'Re-display read posts');
+			$form->append('submit', 'delete_feed', 'Unsubscribe feed');
 			$theme->mark_all_read_form = $form;
+			
+			// Remove feed if requested
+			if(!empty($form->delete_feed->value) && User::identify()->loggedin) {
+				$term->delete();
+				Utils::redirect(Site::get_urL('habari'));
+			}
 			
 			// Select posts
 			if($params['context'] == 'feed') {
