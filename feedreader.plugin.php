@@ -100,7 +100,10 @@ class FeedReader extends Plugin
 	 
 		return true;
 	}
-	 
+	
+	/**
+	 * Add styling to admin
+	 */
 	public function action_admin_header($theme)
 	{
 		if ( $theme->page == 'manage_feeds' ) {
