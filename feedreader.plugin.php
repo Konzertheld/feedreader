@@ -399,9 +399,16 @@ class FeedReader extends Plugin
 	 */
 	public function filter_load_feeds( $result )
 	{
+		// Check internet connection
+		$dummy = RemoteRequest::get_contents("http://google.com");
+		if($dummy == null) {
+			EventLog::log( _t("Skipping feed updating, no internet connection", __CLASS__), 'notice');
+			return $result;
+		}
+		
 		$feedterms = Vocabulary::get('feeds')->get_tree();
 		$menu = Vocabulary::get('FeedReader');
-		Eventlog::log( _t("Updating feeds...", __CLASS__), 'debug' );
+		EventLog::log( _t("Updating feeds...", __CLASS__), 'debug' );
 
 		foreach( $feedterms as $term ) {
 			if(count($term->descendants()) > 0) {
