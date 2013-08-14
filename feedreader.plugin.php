@@ -71,7 +71,7 @@ class FeedReader extends Plugin
 	private function uninstall()
 	{
 		// Remove the periodical execution event
-		CronTab::delete_cronjob( 'feedlist' );
+		CronTab::delete_cronjob( 'feedreader' );
 		// Log the cron deletion event.
 		EventLog::log('Deleted cron for feed updates.');
 		// Remove statuses and vocabulary
@@ -286,7 +286,7 @@ class FeedReader extends Plugin
 		// Is this plugin the one specified?
 		if($plugin_id == $this->plugin_id()) {
 			// Add a 'configure' action in the admin's list of plugins
-			//$actions['configure']= _t('Configure');
+			$actions['configure']= _t('Configure');
 			$actions['update'] = _t('Update All Now');
 			$actions['resetbroken'] = _t('Reset all broken feeds');
 			$actions['import'] = _t('Import OPML file');
@@ -308,12 +308,15 @@ class FeedReader extends Plugin
 		if($plugin_id == $this->plugin_id()) {
 			// Depending on the action specified, do different things
 			switch($action) {
-			// case 'configure':
-				// $ui = new FormUI( __CLASS__ );
-				// // Display the form
-				// $ui->append( 'submit', 'save', _t( 'Save' ) );
-				// $ui->out();
-				// break;
+			case 'configure':
+				$ui = new FormUI( __CLASS__ );
+				// Display the form
+				$ui->append( 'text', 'autoremove_days', __CLASS__ . '__autoremove_days', _t('Remove read posts after X days', __CLASS__) );
+				$ui->autoremove_days->add_validator('validate_regex', '/^[0-9]+$/', _t('Only numbers may be entered.', __CLASS__));
+				$ui->append( 'submit', 'save', _t( 'Save' ) );
+				$ui->on_success( array($this, 'save_config') );
+				$ui->out();
+				break;
 			case 'update':
 				// Reset the cronjob so that it runs immediately
 				CronTab::delete_cronjob( 'feedreader' );
@@ -350,6 +353,31 @@ class FeedReader extends Plugin
 				Eventlog::log("Deleted all posts and feed terms");
 				break;
 			}
+		}
+	}
+	
+	function save_config($form)
+	{
+		$form->save();
+		CronTab::delete_cronjob( 'feedreader_cleanup' );
+		CronTab::add_daily_cron( 'feedreader_cleanup', 'clean_feeds', 'Cleanup old posts from feedreader plugin.' );
+		return false;
+	}
+	
+	/**
+	 * The cron for cleaning old read posts
+	 */
+	function filter_clean_feeds($result)
+	{
+		$days = Options::get(__CLASS__ . '_autoremove_days');
+		$posts = Posts::get(array('before' => strtotime("-$days days"), 'status' => Post::status('read'), 'nolimit' => 1));
+		$count = (string) count($posts);
+		if($posts->delete()) {
+			EventLog::log(_t("%s read posts automatically removed", array($count), __CLASS__), 'info');
+			return $result;
+		}
+		else {
+			return false;
 		}
 	}
 	
