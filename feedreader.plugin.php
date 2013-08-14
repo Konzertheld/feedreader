@@ -421,8 +421,11 @@ class FeedReader extends Plugin
 		return $result;		// only change a cron result to false when it fails
 	}
 	
+	/**
+	 * Update a single feed
+	 */
 	public function update_feed($term, $force = false)
-	{	
+	{
 		if(!$force && isset($term->info->lastcheck) && HabariDateTime::date_create()->int - HabariDateTime::date_create($term->info->lastcheck)->int < 600) {
 			// Don't check more than every 10 minutes
 			EventLog::log( _t('Feed %s skipped because the last check was less than 10 minutes ago.', array($term->term), __CLASS__), 'debug' );
