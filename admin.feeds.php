@@ -22,6 +22,7 @@
 			<li><input type="submit" name="filter" value="<?php _e('Apply filter'); ?>"></li>
 			<li><input type="submit" name="delete" value="<?php _e('Delete selected'); ?>"></li>
 			<li><input type="submit" name="edit" value="<?php _e('Edit selected'); ?>"></li>
+			<li><input type="submit" name="update" value="<?php _e('Update selected'); ?>"></li>
 			<li><input type="submit" name="applygroup" value="<?php _e('Apply group to selected'); ?>"></li>
 		</ul>
 	</div>

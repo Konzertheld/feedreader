@@ -134,6 +134,13 @@ class FeedReader extends Plugin
 			CronTab::delete_cronjob( 'feedreader' );
 			CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
 		}
+		// Handle filters and actions
+		else if(isset($_POST['update'])) {
+			// Updating feeds
+			foreach($_POST['feed_slugs'] as $slug) {
+				$this->update_feed($vocab->get_term($slug), true);
+			}
+		}
 				
 		// Get the feeds
 		$feeds = array();
@@ -260,6 +267,7 @@ class FeedReader extends Plugin
 		$entry = array();
 		$entry['internal_url'] = URL::get('display_feedcontent', array('context' => 'feed', 'feedslug' => $term->term));
 		$entry['title'] = $term->term_display;
+		$entry['slug'] = $term->term;
 		$entry['url'] = $term->info->url;
 		$entry['lastcheck'] = $term->info->lastcheck;
 		$entry['count'] = $term->info->count;

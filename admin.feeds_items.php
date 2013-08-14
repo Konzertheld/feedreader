@@ -1,7 +1,8 @@
 <?php if ( !defined( 'HABARI_PATH' ) ) { die('No direct access'); } ?>
-<?php foreach ( $feeds as $feed ): ?>
+<?php foreach ( $feeds as $feed ):?>
+	
 	<div class="item clear">
-		<span class="checkbox pct5"><span><input type="checkbox" class="checkbox" name="checkbox_ids"></span></span>
+		<span class="checkbox pct5"><span><input type="checkbox" class="checkbox" name="feed_slugs[]" value="<?php echo $feed['slug']; ?>"></span></span>
 		<span class="time pct20 minor"><span><?php isset($feed['lastcheck']) ? print HabariDateTime::date_create($feed['lastcheck'])->format() : print 'none'; ?></span></span>
 		<span class="pct5 minor"><span>&nbsp;<?php if(isset($feed['brokencount'])) echo $feed['brokencount']; ?></span></span>
 		<span class="pct20 minor"><span><?php if(isset($feed['group'])) echo $feed['group']; else echo "&nbsp;"; ?></span></span>
