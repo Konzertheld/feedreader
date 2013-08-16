@@ -136,9 +136,13 @@ class FeedReader extends Plugin
 		}
 		// Handle filters and actions
 		else if(isset($_POST['update'])) {
-			// Updating feeds
 			foreach($_POST['feed_slugs'] as $slug) {
 				$this->update_feed($vocab->get_term($slug), true);
+			}
+		}
+		else if(isset($_POST['delete'])) {
+			foreach($_POST['feed_slugs'] as $slug) {
+				$this->delete_feed($vocab->get_term($slug));
 			}
 		}
 				
@@ -159,6 +163,19 @@ class FeedReader extends Plugin
 	 
 		// End everything
 		exit;
+	}
+	
+	/**
+	 * Delete a feed and all it's posts
+	 */
+	function delete_feed($term)
+	{
+		$posts = $term->objects('post');
+		foreach($posts as $post_id) {
+			$post = Post::get($post_id);
+			$post->delete();
+		}
+		$term->delete();
 	}
 	
 	function collect_feeds($feeds, &$groups, $term, $parent = null)
@@ -832,7 +849,6 @@ class FeedReader extends Plugin
 	{
 		$redirect = "";
 		$term = Vocabulary::get('feeds')->get_term($params['feedslug']);
-		//$this->update_feed($term, true);
 		if($term) {
 			// Add action bar form
 			$form = new FormUI(__CLASS__);
@@ -844,7 +860,7 @@ class FeedReader extends Plugin
 			
 			// Remove feed if requested
 			if(!empty($form->delete_feed->value) && User::identify()->loggedin) {
-				$term->delete();
+				$this->delete_feed($term);
 				Utils::redirect(Site::get_urL('habari'));
 			}
 			
