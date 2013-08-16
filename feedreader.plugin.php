@@ -65,15 +65,12 @@ class FeedReader extends Plugin
 		Vocabulary::create(array('description' => 'Feeds to collect posts from', 'name' => 'feeds', 'features' => array('hierarchical')));
 		// Add a periodical execution event to be triggered hourly
 		CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
-		EventLog::log('Added hourly cron for feed updates.');
 	}
 	
 	private function uninstall()
 	{
 		// Remove the periodical execution event
 		CronTab::delete_cronjob( 'feedreader' );
-		// Log the cron deletion event.
-		EventLog::log('Deleted cron for feed updates.');
 		// Remove statuses and vocabulary
 		if(Vocabulary::exists('feeds')) Vocabulary::get('feeds')->delete();
 		Post::delete_post_status('read');
@@ -352,6 +349,7 @@ class FeedReader extends Plugin
 				// Display the form
 				$ui->append( 'text', 'autoremove_days', __CLASS__ . '__autoremove_days', _t('Remove read posts after X days', __CLASS__) );
 				$ui->autoremove_days->add_validator('validate_regex', '/^[0-9]+$/', _t('Only numbers may be entered.', __CLASS__));
+				$ui->append('checkbox', 'verbose_logging', __CLASS__ . '__verbose_logging', _t('Enable very verbose logging', __CLASS__));
 				$ui->append( 'submit', 'save', _t( 'Save' ) );
 				$ui->on_success( array($this, 'save_config') );
 				$ui->out();
@@ -374,7 +372,6 @@ class FeedReader extends Plugin
 					$term->info->broken_text = "";
 					$term->update();
 				}
-				EventLog::log( _t("All feeds have been set to ok.", __CLASS__), 'info' );
 				Session::notice( _t("All feeds have been set to ok.", __CLASS__) );
 				break;
 			case 'import':
@@ -389,7 +386,7 @@ class FeedReader extends Plugin
 				$posts = Posts::get(array("status" => "any", "nolimit" => 1));
 				if(!empty($posts)) $posts->delete();
 				$this->install();
-				Eventlog::log("Deleted all posts and feed terms");
+				EventLog::log("Deleted all posts and feed terms");
 				break;
 			}
 		}
@@ -508,15 +505,17 @@ class FeedReader extends Plugin
 	 */
 	public function update_feed($term, $force = false)
 	{
+		$verbose = Options::get(__CLASS__ . '__verbose_logging', false);
+		
 		if(!$force && isset($term->info->lastcheck) && HabariDateTime::date_create()->int - HabariDateTime::date_create($term->info->lastcheck)->int < 600) {
 			// Don't check more than every 10 minutes
-			EventLog::log( _t('Feed %s skipped because the last check was less than 10 minutes ago.', array($term->term), __CLASS__), 'debug' );
+			if($verbose) EventLog::log( _t('Feed %s skipped because the last check was less than 10 minutes ago.', array($term->term), __CLASS__), 'debug' );
 			return false;
 		}
 		
 		if(!$force && isset($term->info->broken) && $term->info->broken >= 3) {
 			// Feed was marked as broken and needs manual fixing
-			EventLog::log( _t('Feed %s skipped because the last three checks were not successful.', array($term->term), __CLASS__), 'notice' );
+			if($verbose) EventLog::log( _t('Feed %s skipped because the last three checks were not successful.', array($term->term), __CLASS__), 'notice' );
 			return false;
 		}
 		
@@ -524,7 +523,7 @@ class FeedReader extends Plugin
 		
 		if ( $feed_url == '' ) {
 			$term->info->broken += 1;
-			EventLog::log( _t('Feed %1$s is missing the URL. %2$d more tries until it will be deactivated.', array($term->term, 3 - $term->info->broken), __CLASS__), 'warning' );
+			if($verbose) EventLog::log( _t('Feed %1$s is missing the URL. %2$d more tries until it will be deactivated.', array($term->term, 3 - $term->info->broken), __CLASS__), 'warning' );
 			$term->info->broken_text = _t("URL is missing", __CLASS__);
 			$term->update();
 			return false;
@@ -534,7 +533,7 @@ class FeedReader extends Plugin
 		$xml = RemoteRequest::get_contents( $feed_url );
 		if ( !$xml ) {
 			$term->info->broken += 1;
-			EventLog::log( _t('Unable to fetch feed %1$s data from %2$s. %3$d more tries until it will be deactivated.', array($term->term, $feed_url, 3 - $term->info->broken), __CLASS__), 'warning' );
+			if($verbose) EventLog::log( _t('Unable to fetch feed %1$s data from %2$s. %3$d more tries until it will be deactivated.', array($term->term, $feed_url, 3 - $term->info->broken), __CLASS__), 'warning' );
 			$term->info->broken_text = _t("Unable to fetch data", __CLASS__);
 			$term->update();
 			return false;
@@ -552,7 +551,7 @@ class FeedReader extends Plugin
 		}
 		else {
 			// it's an unsupported format
-			EventLog::log( _t('Feed %1$s is an unsupported format and has been deactivated.', array($term->term), __CLASS__), 'warning' );
+			if($verbose) EventLog::log( _t('Feed %1$s is an unsupported format and has been deactivated.', array($term->term), __CLASS__), 'warning' );
 			$term->info->broken_text = _t("Unsupported format", __CLASS__);
 			$term->info->broken = 3;
 			$term->update();
@@ -576,7 +575,7 @@ class FeedReader extends Plugin
 				try {
 					$feed_updated = HabariDateTime::date_create($feed_updated);
 					if( $feed_updated->int < HabariDateTime::date_create($term->info->lastcheck)->int ) {
-						EventLog::log( _t('Feed %s was not updated since the last check.', array($term->term), __CLASS__), 'info' );
+						if($verbose) EventLog::log( _t('Feed %s was not updated since the last check.', array($term->term), __CLASS__), 'info' );
 						return false;
 					}
 				}
@@ -597,7 +596,9 @@ class FeedReader extends Plugin
 		// Check if the feed content was okay
 		if($items === false) {
 			// There were empty or invalid posts
-			EventLog::log( _t('Feed %1$s had invalid posts and has been deactivated.', array($term->term), __CLASS__), 'warning' );
+			if($verbose) EventLog::log( _t('Feed %1$s had invalid posts and has been deactivated.', array($term->term), __CLASS__), 'warning' );
+			$term->info->broken_text = _t("Invalid posts", __CLASS__);
+			$term->info->broken = 3;
 		}
 		else {
 			// Everything is okay. Save and log success.
@@ -608,7 +609,7 @@ class FeedReader extends Plugin
 			$term->info->lastcheck = HabariDateTime::date_create()->int;
 			$term->info->broken = 0;
 			$term->update();
-			EventLog::log( _t( 'Successfully updated feed %1$s', array($term->term), __CLASS__ ), 'info' );
+			if($verbose) EventLog::log( _t( 'Successfully updated feed %1$s', array($term->term), __CLASS__ ), 'info' );
 		}
 	}
 	
@@ -623,7 +624,7 @@ class FeedReader extends Plugin
 	private function parse_rss ( DOMDocument $dom ) {
 		// each item is an 'item' tag in RSS2
 		$items = $dom->getElementsByTagName('item');
-		
+		$verbose = Options::get(__CLASS__ . '__verbose_logging', false);
 		$feed_items = array();
 		foreach ( $items as $item ) {
 			
@@ -680,7 +681,7 @@ class FeedReader extends Plugin
 			}
 			else {
 				$feed['guid'] = Utils::slugify($feed['title'] . $feed['link']);
-				EventLog::log( _t('No GUID found in %1$s (from %2$s). A GUID was created automatically.', array($feed['title'], Utils::slugify($feed['link'])), __CLASS__), 'notice' );
+				if($verbose) EventLog::log( _t('No GUID found in %1$s (from %2$s). A GUID was created automatically.', array($feed['title'], Utils::slugify($feed['link'])), __CLASS__), 'notice' );
 			}
 			
 			$feed_items[] = $feed;
@@ -699,11 +700,11 @@ class FeedReader extends Plugin
 	 * @param DOMDocument $dom
 	 * @return array Array of items.
 	 */
-	private function parse_atom ( DOMDocument $dom ) {
-		
+	private function parse_atom ( DOMDocument $dom )
+	{
 		// each item is an 'entry' tag in ATOM
 		$items = $dom->getElementsByTagName('entry');
-		
+		$verbose = Options::get(__CLASS__ . '__verbose_logging', false);
 		$feed_items = array();
 		foreach ( $items as $item ) {
 			
@@ -713,7 +714,7 @@ class FeedReader extends Plugin
 				$feed['title'] = $item->getElementsByTagName('title')->item(0)->nodeValue;
 			}
 			else {
-				EventLog::log( _t("Item with no title, something is wrong with this feed", __CLASS__), 'err');
+				if($verbose) EventLog::log( _t("Item with no title, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			if($item->getElementsByTagName('content')->length > 0) {
@@ -724,14 +725,14 @@ class FeedReader extends Plugin
 				$feed['content'] = $item->getElementsByTagName('summary')->item(0)->nodeValue;
 			}
 			else {
-				EventLog::log( _t("Item with no content, something is wrong with this feed", __CLASS__), 'err');
+				if($verbose) EventLog::log( _t("Item with no content, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			if($item->getElementsByTagName('link')->length > 0) {
 				$feed['link'] = $item->getElementsByTagName('link')->item(0)->getAttribute('href');
 			}
 			else {
-				EventLog::log( _t("Item with no URL, something is wrong with this feed", __CLASS__), 'err');
+				if($verbose) EventLog::log( _t("Item with no URL, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			if($item->getElementsByTagName('published')->length > 0) {
@@ -759,7 +760,7 @@ class FeedReader extends Plugin
 				$feed['updated'] = $feed['published'];
 			}
 			else {
-				EventLog::log( _t("Item with no date, something is wrong with this feed", __CLASS__), 'err');
+				if($verbose) EventLog::log( _t("Item with no date, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			if($item->getElementsByTagName('creator')->length > 0) {
@@ -774,7 +775,7 @@ class FeedReader extends Plugin
 			}
 			else {
 				$feed['guid'] = Utils::slugify($feed['title'] . $feed['link']);
-				EventLog::log( _t('No GUID found in %1$s (from %2$s). A GUID was created automatically.', array($feed['title'], Utils::slugify($feed['link'])), __CLASS__), 'notice' );
+				if($verbose) EventLog::log( _t('No GUID found in %1$s (from %2$s). A GUID was created automatically.', array($feed['title'], Utils::slugify($feed['link'])), __CLASS__), 'notice' );
 			}
 			
 			$feed_items[] = $feed;
@@ -789,11 +790,12 @@ class FeedReader extends Plugin
 	 */
 	private function replace ( $term, $items ) {
 		$changed = false;
+		$verbose = Options::get(__CLASS__ . '__verbose_logging', false);
 		
 		foreach ( $items as $item ) {
 			// Sanity checks
 			if(empty($item["content"])) {
-				Eventlog::log( _t("Skipping item %s because it has no content.", array($term->term), __CLASS__), 'err' );
+				if($verbose) Eventlog::log( _t("Skipping item %s because it has no content.", array($term->term), __CLASS__), 'err' );
 				continue;
 			}
 			
@@ -821,7 +823,7 @@ class FeedReader extends Plugin
 			$term->associate('post', $post->id);
 			
 			if ( !$result ) {
-				Eventlog::log( _t("There was an error saving item %s", array($term->term), __CLASS__), 'err' );
+				if($verbose) Eventlog::log( _t("There was an error saving item %s", array($term->term), __CLASS__), 'err' );
 			}
 			else {
 				// If we got here and there was no error, at least one item was created or updated.
