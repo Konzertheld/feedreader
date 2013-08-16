@@ -131,9 +131,8 @@ class FeedReader extends Plugin
 				$term->update();
 			}
 			
-			// Reset the cronjob so that it runs immediately with the change
-			CronTab::delete_cronjob( 'feedreader' );
-			CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
+			// Force the new feed to be updated
+			$this->update_feed($term, true);
 		}
 		// Handle filters and actions
 		else if(isset($_POST['update'])) {
