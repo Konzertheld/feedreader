@@ -108,6 +108,7 @@ class FeedReader extends Plugin
 	{
 		if ( $theme->page == 'manage_feeds' ) {
 			Stack::add('admin_stylesheet', array($this->get_url() . '/admin.css', 'screen'));
+			Stack::add('admin_footer_javascript', $this->get_url() . '/admin.js', 'feedreader_js', 'jquery');
 		}
 	}
 	

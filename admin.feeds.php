@@ -12,14 +12,14 @@
 <div class="container">
 
 	<div class="item clear">
-		<span class="checkbox pct5">&nbsp;</span>
+		<span class="pct5">&nbsp;</span>
 		<span class="time pct20"><?php _e('Last Update'); ?></span>
 		<span class="pct5"><?php _e('ERR'); ?></span>
 		<span class="pct15"><?php _e('Group'); ?></span>
 		<span class="pct10"><?php _e('Unread'); ?></span>
 		<span class="pct25"><?php _e('Title'); ?></span>
 		<ul class="dropbutton pct20">
-			<li><input type="submit" name="filter" value="<?php _e('Apply filter'); ?>"></li>
+			<li style="display: block;"><input type="submit" name="filter" value="<?php _e('Apply filter'); ?>"></li>
 			<li><input type="submit" name="delete" value="<?php _e('Delete selected'); ?>"></li>
 			<li><input type="submit" name="edit" value="<?php _e('Edit selected'); ?>"></li>
 			<li><input type="submit" name="update" value="<?php _e('Update selected'); ?>"></li>
@@ -28,7 +28,7 @@
 	</div>
 	
 	<div class="item clear">
-		<span class="checkbox pct5"><input type="checkbox" id="master_checkbox" name="master_checkbox"></span>
+		<span class="pct5"><input type="checkbox" id="master_checkbox" name="master_checkbox"></span>
 		<span class="time pct20"><input id="timefilter" type="text" name="updated_before" value="updated before"></span>
 		<span class="pct5">&nbsp;</span>
 		<span class="pct15"><?php echo Utils::html_select('group', $groups, $group, array( 'class'=>'pct95')); ?></span>
