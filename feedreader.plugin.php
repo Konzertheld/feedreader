@@ -599,6 +599,7 @@ class FeedReader extends Plugin
 			if($verbose) EventLog::log( _t('Feed %1$s had invalid posts and has been deactivated.', array($term->term), __CLASS__), 'warning' );
 			$term->info->broken_text = _t("Invalid posts", __CLASS__);
 			$term->info->broken = 3;
+			$term->update();
 		}
 		else {
 			// Everything is okay. Save and log success.
