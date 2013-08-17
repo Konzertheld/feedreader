@@ -635,7 +635,7 @@ class FeedReader extends Plugin
 				$feed['title'] = $item->getElementsByTagName('title')->item(0)->nodeValue;
 			}
 			else {
-				// Item with no title, something is wrong with this feed
+				if($verbose) EventLog::log( _t("Item with no title, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			if($item->getElementsByTagName('encoded')->length > 0) {
@@ -646,14 +646,14 @@ class FeedReader extends Plugin
 				$feed['content'] = $item->getElementsByTagName('description')->item(0)->nodeValue;
 			}
 			else {
-				// Item with no content, something is wrong with this feed
+				if($verbose) EventLog::log( _t("Item with no content, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			if($item->getElementsByTagName('link')->length > 0) {
 				$feed['link'] = $item->getElementsByTagName('link')->item(0)->nodeValue;
 			}
 			else {
-				// Item with no URL, something is wrong with this feed
+				if($verbose) EventLog::log( _t("Item with no URL, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			if($item->getElementsByTagName('pubDate')->length > 0) {
@@ -661,12 +661,12 @@ class FeedReader extends Plugin
 					$feed['published'] = HabariDateTime::date_create($item->getElementsByTagName('pubDate')->item(0)->nodeValue);
 				}
 				catch(Exception $e) {
-					// Invalid date format
+					if($verbose) EventLog::log( _t("Item with invalid date format, something is wrong with this feed", __CLASS__), 'err');
 					return false;
 				}
 			}
 			else {
-				// Item with no date, something is wrong with this feed
+				if($verbose) EventLog::log( _t("Item with no date, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			$feed['updated'] = $feed['published'];
@@ -741,9 +741,13 @@ class FeedReader extends Plugin
 					$feed['published'] = HabariDateTime::date_create($item->getElementsByTagName('published')->item(0)->nodeValue);
 				}
 				catch(Exception $e) {
-					// Invalid date format
+					if($verbose) EventLog::log( _t("Item with invalid date format, something is wrong with this feed", __CLASS__), 'err');
 					return false;
 				}
+			}
+			else {
+				if($verbose) EventLog::log( _t("Item with no date, something is wrong with this feed", __CLASS__), 'err');
+				return false;
 			}
 			if($item->getElementsByTagName('updated')->length > 0) {
 				try {
@@ -751,7 +755,7 @@ class FeedReader extends Plugin
 				}
 				catch(Exception $e) {
 					// Invalid date format
-					return false;
+					if($verbose) EventLog::log( _t("Item with invalid date format, something is wrong with this feed", __CLASS__), 'err');
 				}
 				if(!isset($feed['published'])) {
 					$feed['published'] = $feed['updated'];
