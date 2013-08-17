@@ -661,7 +661,7 @@ class FeedReader extends Plugin
 					$feed['published'] = HabariDateTime::date_create($item->getElementsByTagName('pubDate')->item(0)->nodeValue);
 				}
 				catch(Exception $e) {
-					if($verbose) EventLog::log( _t("Item with invalid date format, something is wrong with this feed", __CLASS__), 'err');
+					if($verbose) EventLog::log( _t("Item with invalid date format %s, something is wrong with this feed", array($item->getElementsByTagName('pubDate')->item(0)->nodeValue), __CLASS__), 'err');
 					return false;
 				}
 			}
@@ -741,7 +741,7 @@ class FeedReader extends Plugin
 					$feed['published'] = HabariDateTime::date_create($item->getElementsByTagName('published')->item(0)->nodeValue);
 				}
 				catch(Exception $e) {
-					if($verbose) EventLog::log( _t("Item with invalid date format, something is wrong with this feed", __CLASS__), 'err');
+					if($verbose) EventLog::log( _t("Item with invalid date format %s, something is wrong with this feed", array($item->getElementsByTagName('published')->item(0)->nodeValue), __CLASS__), 'err');
 					return false;
 				}
 			}
@@ -754,8 +754,7 @@ class FeedReader extends Plugin
 					$feed['updated'] = HabariDateTime::date_create($item->getElementsByTagName('updated')->item(0)->nodeValue);
 				}
 				catch(Exception $e) {
-					// Invalid date format
-					if($verbose) EventLog::log( _t("Item with invalid date format, something is wrong with this feed", __CLASS__), 'err');
+					if($verbose) EventLog::log( _t("Item with invalid date format %s, something is wrong with this feed", array($item->getElementsByTagName('updated')->item(0)->nodeValue), __CLASS__), 'err');
 				}
 				if(!isset($feed['published'])) {
 					$feed['published'] = $feed['updated'];
