@@ -745,10 +745,6 @@ class FeedReader extends Plugin
 					return false;
 				}
 			}
-			else {
-				if($verbose) EventLog::log( _t("Item with no date, something is wrong with this feed", __CLASS__), 'err');
-				return false;
-			}
 			if($item->getElementsByTagName('updated')->length > 0) {
 				try {
 					$feed['updated'] = HabariDateTime::date_create($item->getElementsByTagName('updated')->item(0)->nodeValue);
