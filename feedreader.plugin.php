@@ -666,7 +666,7 @@ class FeedReader extends Plugin
 				}
 			}
 			else {
-				if($verbose) EventLog::log( _t("Item with no date, something is wrong with this feed", __CLASS__), 'err');
+				if($verbose) EventLog::log( _t("RSS: Item with no date, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			$feed['updated'] = $feed['published'];
@@ -760,7 +760,7 @@ class FeedReader extends Plugin
 				$feed['updated'] = $feed['published'];
 			}
 			else {
-				if($verbose) EventLog::log( _t("Item with no date, something is wrong with this feed", __CLASS__), 'err');
+				if($verbose) EventLog::log( _t("Atom: Item with no date, something is wrong with this feed", __CLASS__), 'err');
 				return false;
 			}
 			if($item->getElementsByTagName('creator')->length > 0) {
@@ -793,6 +793,11 @@ class FeedReader extends Plugin
 		$verbose = Options::get(__CLASS__ . '__verbose_logging', false);
 		
 		foreach ( $items as $item ) {
+			// Check date
+			if($term->info->lastcheck > $item["updated"]->int) {
+				continue;
+			}
+			
 			// Sanity checks
 			if(empty($item["content"])) {
 				if($verbose) Eventlog::log( _t("Skipping item %s because it has no content.", array($term->term), __CLASS__), 'err' );
