@@ -6,3 +6,12 @@ $("#master_checkbox").click(function() {
 		$("[name='feed_slugs[]']").attr("checked", true);
 	}
 });
+
+$("#group").change(function() {
+	if($(this).val() == "new") {
+		$("#new_group_wrapper").slideDown();
+	}
+	else {
+		$("#new_group_wrapper").fadeOut();
+	}
+});

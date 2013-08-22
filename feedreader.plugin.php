@@ -142,11 +142,43 @@ class FeedReader extends Plugin
 				$this->delete_feed($vocab->get_term($slug));
 			}
 		}
+		else if(isset($_POST['applygroup'])) {
+			if(isset($_POST['group']) && $_POST['group'] != 'all' && $_POST['group'] != 'new') {
+				// Get group
+				$groupterm = $vocab->get_term($_POST['group']);
+				if(isset($groupterm)) {
+					// Get the first child of that group
+					$desc = $groupterm->descendants()[0];
+					if(isset($desc)) {
+						// Bump all selected terms to that position
+						foreach($_POST['feed_slugs'] as $slug) {
+							$term = $vocab->get_term($slug);
+							$vocab->move_term($term, $desc);
+						}
+					}
+				}
+			}
+			else if(isset($_POST['group']) && $_POST['group'] == 'new' && !empty($_POST['new_group']) && count($_POST['feed_slugs'])) {
+				// Create group
+				$newgroup = $vocab->add_term(Utils::slugify($_POST['new_group']));
+				$newgroup->term_display = $_POST['new_group'];
+				// Create fake descendant
+				$desc = $vocab->add_term(Utils::slugify("fake"), $newgroup);
+				foreach($_POST['feed_slugs'] as $slug) {
+					$term = $vocab->get_term($slug);
+					$vocab->move_term($term, $desc);
+				}
+				$desc->delete();
+			}
+		}
+		// @todo move feeds out of groups
+		// @todo cleanup empty groups
 				
 		// Get the feeds
 		$feeds = array();
 		$groups = array();
-		$groups[] = "all";
+		$groups['all'] = _t("all", __CLASS__);
+		$groups['new'] = _t("new", __CLASS__);
 		foreach($vocab->get_root_terms() as $term) {
 			$feeds = $this->collect_feeds($feeds, $groups, $term);
 		}
@@ -154,8 +186,8 @@ class FeedReader extends Plugin
 		// Display
 		$theme->feeds = $feeds;
 		$theme->groups = $groups;
-		$theme->group = ($handler->handler_vars['group']) ? $handler->handler_vars['group'] : $groups[0];
-		$theme->itemstatus = ($handler->handler_vars['items']) ? $handler->handler_vars['items'] : '';
+		$theme->group = (isset($_POST['group'])) ? $_POST['group'] : 'all';
+		$theme->itemstatus = (isset($_POST['items'])) ? $_POST['items'] : '';
 		$theme->display( 'admin.feeds' );
 	 
 		// End everything
@@ -211,7 +243,7 @@ class FeedReader extends Plugin
 				return $feeds;
 			}
 			// Group filter
-			if(isset($_POST['filter']) && isset($_POST['group']) && $_POST['group'] !== "0" && (!isset($parent) || $parent->term != $_POST['group'])) {
+			if(isset($_POST['filter']) && isset($_POST['group']) && $_POST['group'] != 'all' && $_POST['group'] != 'new' && (!isset($parent) || $parent->term != $_POST['group'])) {
 				return $feeds;
 			}
 			

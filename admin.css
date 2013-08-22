@@ -17,3 +17,5 @@
 .feederror {
 	text-align: right;
 }
+
+#new_group_wrapper { display: none; }

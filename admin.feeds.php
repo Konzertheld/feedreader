@@ -37,6 +37,10 @@
 		<span class="pct25 feederror"><label for="only_broken">Only broken feeds</label><input id="brokenfilter" type="checkbox" name="only_broken"></span>
 	</div>
 	
+	<div id="new_group_wrapper" class="item clear">
+		<span class="time pct100"><input class="pct15" id="new_group" type="text" name="new_group" value="enter name"></span>
+	</div>
+	
 	<?php $theme->display('admin.feeds_items'); ?>
 
 </div>
