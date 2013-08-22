@@ -143,7 +143,7 @@ class FeedReader extends Plugin
 			}
 		}
 		else if(isset($_POST['applygroup'])) {
-			if(isset($_POST['group']) && $_POST['group'] != 'all' && $_POST['group'] != 'new') {
+			if(isset($_POST['group']) && !in_array($_POST['group'], array('new', 'all', 'none'))) {
 				// Get group
 				$groupterm = $vocab->get_term($_POST['group']);
 				if(isset($groupterm)) {
@@ -162,7 +162,7 @@ class FeedReader extends Plugin
 				// Create group
 				$newgroup = $vocab->add_term(Utils::slugify($_POST['new_group']));
 				$newgroup->term_display = $_POST['new_group'];
-				// Create fake descendant
+				// Create fake descendant (dirty workaround because I don't know better)
 				$desc = $vocab->add_term(Utils::slugify("fake"), $newgroup);
 				foreach($_POST['feed_slugs'] as $slug) {
 					$term = $vocab->get_term($slug);
@@ -170,8 +170,14 @@ class FeedReader extends Plugin
 				}
 				$desc->delete();
 			}
+			else if(isset($_POST['group']) && $_POST['group'] == 'none') {
+				$root = $vocab->get_root_terms()[0];
+				foreach($_POST['feed_slugs'] as $slug) {
+					$term = $vocab->get_term($slug);
+					$vocab->move_term($term, $root);
+				}
+			}
 		}
-		// @todo move feeds out of groups
 		// @todo cleanup empty groups
 				
 		// Get the feeds
@@ -179,6 +185,7 @@ class FeedReader extends Plugin
 		$groups = array();
 		$groups['all'] = _t("all", __CLASS__);
 		$groups['new'] = _t("new", __CLASS__);
+		$groups['none'] = _t("none", __CLASS__);
 		foreach($vocab->get_root_terms() as $term) {
 			$feeds = $this->collect_feeds($feeds, $groups, $term);
 		}
@@ -243,7 +250,10 @@ class FeedReader extends Plugin
 				return $feeds;
 			}
 			// Group filter
-			if(isset($_POST['filter']) && isset($_POST['group']) && $_POST['group'] != 'all' && $_POST['group'] != 'new' && (!isset($parent) || $parent->term != $_POST['group'])) {
+			if(isset($_POST['filter']) && isset($_POST['group']) && !in_array($_POST['group'], array('new', 'all', 'none')) && (!isset($parent) || $parent->term != $_POST['group'])) {
+				return $feeds;
+			}
+			if(isset($_POST['filter']) && isset($_POST['group']) && $_POST['group'] == 'none' && isset($parent)) {
 				return $feeds;
 			}
 			
