@@ -208,8 +208,10 @@ class FeedReader extends Plugin
 	{
 		$posts = $term->objects('post');
 		foreach($posts as $post_id) {
-			$post = Post::get($post_id);
-			$post->delete();
+			if(isset($post)) {
+				$post = Post::get($post_id);
+				$post->delete();
+			}
 		}
 		$term->delete();
 	}
