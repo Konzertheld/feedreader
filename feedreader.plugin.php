@@ -949,10 +949,10 @@ class FeedReader extends Plugin
 			
 			// Create filters
 			if(empty($form->show_read->value)) {
-				// Process "show read"
 				$filters = array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist));
 			}
 			else {
+				// Process "show read"
 				$filters = array('status' => array(Post::status('unread'), Post::status('read')), 'vocabulary' => array('feeds:term' => $termlist));
 			}
 			
