@@ -972,7 +972,7 @@ class FeedReader extends Plugin
 			}
 			
 			$theme->feedterm = $term;
-			$theme->act_display(array('user_filters' => $filters));
+			$theme->act_display(array('posts' => $posts));
 		}
 		else $theme->act_display_404();
 	}
