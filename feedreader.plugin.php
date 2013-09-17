@@ -912,7 +912,7 @@ class FeedReader extends Plugin
 			// Remove feed if requested
 			if(!empty($form->delete_feed->value) && User::identify()->loggedin) {
 				$this->delete_feed($term);
-				Utils::redirect(Site::get_urL('habari'));
+				Utils::redirect(Site::get_url('habari'));
 			}
 			
 			// Select posts
