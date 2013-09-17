@@ -926,6 +926,8 @@ class FeedReader extends Plugin
 				}
 			}
 			else return;
+			
+			$filters = array('vocabulary' => array('feeds:term' => $termlist), 'status' => array(Post::status('unread')));
 					
 			// Process "mark ALL as read"
 			if(!empty($form->mark_all_read->value)) {
@@ -947,13 +949,9 @@ class FeedReader extends Plugin
 				}
 			}
 			
-			// Create filters
-			if(empty($form->show_read->value)) {
-				$filters = array('status' => Post::status('unread'), 'vocabulary' => array('feeds:term' => $termlist));
-			}
-			else {
-				// Process "show read"
-				$filters = array('status' => array(Post::status('unread'), Post::status('read')), 'vocabulary' => array('feeds:term' => $termlist));
+			// Process "show read"
+			if(!empty($form->show_read->value)) {
+				$filters['status'][] = Post::status('read');
 			}
 			
 			// Get posts
@@ -967,7 +965,7 @@ class FeedReader extends Plugin
 				}
 			}
 			
-			if(!$redirect == "") {
+			if(!empty($redirect)) {
 				Utils::redirect($redirect);
 			}
 			
