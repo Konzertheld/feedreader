@@ -556,18 +556,12 @@ class FeedReader extends Plugin
 			if($verbose) EventLog::log( _t('Feed %s skipped because the last check was less than 10 minutes ago.', array($term->term), __CLASS__), 'debug' );
 			return false;
 		}
-		
-		if(!$force && isset($term->info->broken) && $term->info->broken >= 3) {
-			// Feed was marked as broken and needs manual fixing
-			if($verbose) EventLog::log( _t('Feed %s skipped because the last three checks were not successful.', array($term->term), __CLASS__), 'notice' );
-			return false;
-		}
-		
+			
 		$feed_url = $term->info->url;
 		
 		if ( $feed_url == '' ) {
 			$term->info->broken += 1;
-			if($verbose) EventLog::log( _t('Feed %1$s is missing the URL. %2$d more tries until it will be deactivated.', array($term->term, 3 - $term->info->broken), __CLASS__), 'warning' );
+			if($verbose) EventLog::log( _t('Feed %1$s is missing the URL.', array($term->term), __CLASS__), 'warning' );
 			$term->info->broken_text = _t("URL is missing", __CLASS__);
 			$term->update();
 			return false;
@@ -577,7 +571,7 @@ class FeedReader extends Plugin
 		$xml = RemoteRequest::get_contents( $feed_url );
 		if ( !$xml ) {
 			$term->info->broken += 1;
-			if($verbose) EventLog::log( _t('Unable to fetch feed %1$s data from %2$s. %3$d more tries until it will be deactivated.', array($term->term, $feed_url, 3 - $term->info->broken), __CLASS__), 'warning' );
+			if($verbose) EventLog::log( _t('Unable to fetch feed %1$s data from %2$s.', array($term->term, $feed_url), __CLASS__), 'warning' );
 			$term->info->broken_text = _t("Unable to fetch data", __CLASS__);
 			$term->update();
 			return false;
@@ -595,9 +589,9 @@ class FeedReader extends Plugin
 		}
 		else {
 			// it's an unsupported format
-			if($verbose) EventLog::log( _t('Feed %1$s is an unsupported format and has been deactivated.', array($term->term), __CLASS__), 'warning' );
+			if($verbose) EventLog::log( _t('Feed %1$s is an unsupported format.', array($term->term), __CLASS__), 'warning' );
 			$term->info->broken_text = _t("Unsupported format", __CLASS__);
-			$term->info->broken = 3;
+			$term->info->broken += 1;
 			$term->update();
 			return false;
 		}
@@ -640,9 +634,9 @@ class FeedReader extends Plugin
 		// Check if the feed content was okay
 		if($items === false) {
 			// There were empty or invalid posts
-			if($verbose) EventLog::log( _t('Feed %1$s had invalid posts and has been deactivated.', array($term->term), __CLASS__), 'warning' );
+			if($verbose) EventLog::log( _t('Feed %1$s had invalid posts.', array($term->term), __CLASS__), 'warning' );
 			$term->info->broken_text = _t("Invalid posts", __CLASS__);
-			$term->info->broken = 3;
+			$term->info->broken += 1;
 			$term->update();
 		}
 		else {
@@ -652,7 +646,7 @@ class FeedReader extends Plugin
 				$term->info->count = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => array($term))));
 			}
 			$term->info->lastcheck = HabariDateTime::date_create()->int;
-			$term->info->broken = 0;
+			unset($term->info->broken_text);
 			$term->update();
 			if($verbose) EventLog::log( _t( 'Successfully updated feed %1$s', array($term->term), __CLASS__ ), 'info' );
 		}
