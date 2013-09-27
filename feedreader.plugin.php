@@ -350,6 +350,7 @@ class FeedReader extends Plugin
 		$entry['slug'] = $term->term;
 		$entry['url'] = $term->info->url;
 		$entry['lastcheck'] = $term->info->lastcheck;
+		$entry['lastupdate'] = $term->info->lastupdate;
 		$entry['count'] = $term->info->count;
 		return $entry;
 	}
@@ -644,6 +645,7 @@ class FeedReader extends Plugin
 			$changed = $this->replace( $term, $items );
 			if($changed) {
 				$term->info->count = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => array($term))));
+				$term->info->lastupdate = HabariDateTime::date_create()->int;
 			}
 			$term->info->lastcheck = HabariDateTime::date_create()->int;
 			unset($term->info->broken_text);
@@ -827,7 +829,8 @@ class FeedReader extends Plugin
 	 * Insert all the feed items as posts and modify existing posts
 	 */
 	private function replace ( $term, $items ) {
-		$changed = false;
+		$updated = false;
+		
 		$verbose = Options::get(__CLASS__ . '__verbose_logging', false);
 		
 		foreach ( $items as $item ) {
@@ -842,6 +845,8 @@ class FeedReader extends Plugin
 				continue;
 			}
 			
+			$changed = false;
+			
 			// Get existing post or create new one
 			$post = Post::get(array('all:info' => array('guid' => $item["guid"])));
 			if(!$post) {
@@ -849,15 +854,23 @@ class FeedReader extends Plugin
 				$post->content_type = 1;
 				$post->user_id = 1;
 				$post->status = Post::status('unread');
+				$changed = true;
 			}
 			
 			// Save fields
+			$changed = $changed || $post->title != $item["title"];
 			$post->title = (!empty($item["title"])) ? $item["title"] : _t("Untitled", __CLASS__);
+			$changed = $changed || $post->content != $item["content"];
 			$post->content = $item["content"];
+			$changed = $changed || $post->updated != $item["updated"];
 			$post->updated = $item["updated"]->int;
+			$changed = $changed || $post->pubdate != $item["published"];
 			$post->pubdate = $item["published"]->int;
+			$changed = $changed || $post->info->guid != $item["guid"];
 			$post->info->guid = $item["guid"];
+			$changed = $changed || $post->info->link != $item["link"];
 			$post->info->link = $item["link"];
+			$changed = $changed || $post->author != $item["author"];
 			if(isset($item['author'])) {
 				$post->info->author = $item["author"];
 			}
@@ -870,11 +883,11 @@ class FeedReader extends Plugin
 			}
 			else {
 				// If we got here and there was no error, at least one item was created or updated.
-				$changed = true;
+				$updated = $updated || $changed;
 			}
 		}
 		
-		return $changed;
+		return $updated;
 	}
 	
 	/**
