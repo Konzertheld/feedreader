@@ -874,6 +874,8 @@ class FeedReader extends Plugin
 			if(isset($item['author'])) {
 				$post->info->author = $item["author"];
 			}
+			
+			$post->info->feed = $term;
 
 			$result = ($post->id) ? $post->update() : $post->insert();
 			$term->associate('post', $post->id);
