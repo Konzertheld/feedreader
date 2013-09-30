@@ -208,8 +208,8 @@ class FeedReader extends Plugin
 	{
 		$posts = $term->objects('post');
 		foreach($posts as $post_id) {
-			if(isset($post)) {
-				$post = Post::get($post_id);
+			$post = Post::get($post_id);
+			if($post) {
 				$post->delete();
 			}
 		}
@@ -712,7 +712,12 @@ class FeedReader extends Plugin
 			$feed['updated'] = $feed['published'];
 			if($item->getElementsByTagName('creator')->length > 0) {
 				// Wordpress-style author names
-				$feed['author'] = $item->getElementsByTagName('creator')->item(0)->nodeValue;
+				if($item->getElementsByTagName('creator')->item(0)->getElementsByTagName('name')->length > 0) {
+					$feed['author'] = $item->getElementsByTagName('creator')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
+				}
+				else {
+					$feed['author'] = $item->getElementsByTagName('creator')->item(0)->nodeValue;
+				}
 			}
 			elseif($item->getElementsByTagName('author')->length > 0) {
 				$feed['author'] = $item->getElementsByTagName('author')->item(0)->nodeValue;
@@ -805,7 +810,12 @@ class FeedReader extends Plugin
 			}
 			if($item->getElementsByTagName('creator')->length > 0) {
 				// Wordpress-style author names
-				$feed['author'] = $item->getElementsByTagName('creator')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
+				if($item->getElementsByTagName('creator')->item(0)->getElementsByTagName('name')->length > 0) {
+					$feed['author'] = $item->getElementsByTagName('creator')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
+				}
+				else {
+					$feed['author'] = $item->getElementsByTagName('creator')->item(0)->nodeValue;
+				}
 			}
 			elseif($item->getElementsByTagName('author')->length > 0) {
 				$feed['author'] = $item->getElementsByTagName('author')->item(0)->getElementsByTagName('name')->item(0)->nodeValue;
@@ -870,8 +880,8 @@ class FeedReader extends Plugin
 			$post->info->guid = $item["guid"];
 			$changed = $changed || $post->info->link != $item["link"];
 			$post->info->link = $item["link"];
-			$changed = $changed || $post->author != $item["author"];
 			if(isset($item['author'])) {
+				$changed = $changed || $post->author != $item["author"];
 				$post->info->author = $item["author"];
 			}
 			
