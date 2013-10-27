@@ -597,7 +597,7 @@ class FeedReader extends Plugin
 			return false;
 		}
 		
-		// Check if the feed itself says it wasn't updated
+		// Check if the feed itself says it wasn't updated. Looks awful because there are many ways to do so
 		$term_lastcheck = $term->info->lastcheck;
 		if( isset($term_lastcheck) && !$force ) {
 			if( $dom->getElementsByTagName('pubDate')->length > 0 && $dom->getElementsByTagName('pubDate')->item(0)->parentNode->tagName == "rss") {
@@ -615,7 +615,7 @@ class FeedReader extends Plugin
 					$feed_updated = HabariDateTime::date_create($feed_updated);
 					if( $feed_updated->int < HabariDateTime::date_create($term->info->lastcheck)->int ) {
 						if($verbose) EventLog::log( _t('Feed %s was not updated since the last check.', array($term->term), __CLASS__), 'info' );
-						return false;
+						return true;
 					}
 				}
 				catch(Exception $e) { /* discard invalid dates */ }
@@ -639,6 +639,8 @@ class FeedReader extends Plugin
 			$term->info->broken_text = _t("Invalid posts", __CLASS__);
 			$term->info->broken += 1;
 			$term->update();
+			// return true anyway, the feed might contain readable posts
+			return true;
 		}
 		else {
 			// Everything is okay. Save and log success.
@@ -651,6 +653,7 @@ class FeedReader extends Plugin
 			unset($term->info->broken_text);
 			$term->update();
 			if($verbose) EventLog::log( _t( 'Successfully updated feed %1$s', array($term->term), __CLASS__ ), 'info' );
+			return true;
 		}
 	}
 	
