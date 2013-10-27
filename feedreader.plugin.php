@@ -587,7 +587,7 @@ class FeedReader extends Plugin
 		// @ to hide parse errors
 		@$dom->loadXML( $xml );
 
-		if( $dom->getElementsByTagName('rss')->length > 0 ) {
+		if( $dom->getElementsByTagName('rss')->length > 0 || $dom->getElementsByTagName('channel')->length > 0 ) {
 			$type = "rss";
 		}
 		else if( $dom->getElementsByTagName('feed')->length > 0 ) {
@@ -733,6 +733,15 @@ class FeedReader extends Plugin
 				}
 				catch(Exception $e) {
 					if($verbose) EventLog::log( _t("Item with invalid date format %s, something is wrong with this feed", array($item->getElementsByTagName('pubDate')->item(0)->nodeValue), __CLASS__), 'err');
+					return false;
+				}
+			}
+			else if($item->getElementsByTagName('date')->length > 0) {
+				try {
+					$feed['published'] = HabariDateTime::date_create($item->getElementsByTagName('date')->item(0)->nodeValue);
+				}
+				catch(Exception $e) {
+					if($verbose) EventLog::log( _t("Item with invalid date format %s, something is wrong with this feed", array($item->getElementsByTagName('date')->item(0)->nodeValue), __CLASS__), 'err');
 					return false;
 				}
 			}
