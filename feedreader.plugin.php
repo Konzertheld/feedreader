@@ -815,7 +815,12 @@ class FeedReader extends Plugin
 				return false;
 			}
 			if($item->getElementsByTagName('link')->length > 0) {
-				$feed['link'] = $item->getElementsByTagName('link')->item(0)->getAttribute('href');
+				foreach($item->getElementsByTagName('link') as $link) {
+					// make sure we use the HTML version of the post itself
+					if($link->hasAttribute("rel") == false || (($link->getAttribute("rel") == "self" || $link->getAttribute("rel") == "alternate") && $link->getAttribute("type") == "text/html")) {
+						$feed['link'] = $link->getAttribute('href');
+					}
+				}
 			}
 			else {
 				if($verbose) EventLog::log( _t("Item with no URL, something is wrong with this feed", __CLASS__), 'err');
