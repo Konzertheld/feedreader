@@ -128,8 +128,13 @@ class FeedReader extends Plugin
 				$term->update();
 			}
 			
-			// Force the new feed to be updated
-			$this->update_feed($term, true);
+			// Force the new feed to be updated. Also gets feed URLs from other URLs
+			if($this->update_feed($term, true)) {
+				Session::notice("Feed added successfully");
+			}
+			else {
+				Session::error("There was a problem adding the feed");
+			}
 		}
 		// Handle filters and actions
 		else if(isset($_POST['update'])) {
@@ -581,7 +586,7 @@ class FeedReader extends Plugin
 		$dom = new DOMDocument();
 		// @ to hide parse errors
 		@$dom->loadXML( $xml );
-		
+
 		if( $dom->getElementsByTagName('rss')->length > 0 ) {
 			$type = "rss";
 		}
@@ -589,12 +594,35 @@ class FeedReader extends Plugin
 			$type = "atom";
 		}
 		else {
-			// it's an unsupported format
-			if($verbose) EventLog::log( _t('Feed %1$s is an unsupported format.', array($term->term), __CLASS__), 'warning' );
-			$term->info->broken_text = _t("Unsupported format", __CLASS__);
-			$term->info->broken += 1;
-			$term->update();
-			return false;
+			// it might be a non-feed, but valid URL, try to get the feed URL
+			@$dom->loadHTML( $xml );
+			$links = $dom->getElementsByTagName("head")->item(0)->getElementsByTagName("link");
+			foreach($links as $link)
+			{
+				if($link->getAttribute("rel") == "alternate") {
+					if(!isset($rss) && stripos($link->getAttribute("type"), "application/rss") !== false) {
+						$rss = $link->getAttribute("href");
+					}
+					if(!isset($atom) && stripos($link->getAttribute("type"), "application/atom") !== false) {
+						$atom = $link->getAttribute("href");
+					}
+				}
+			}
+			
+			if(isset($atom) || isset($rss)) {
+				// we found the URL to the feed, save it and try again
+				$term->info->url = (isset($atom)) ? $atom : $rss;
+				$term->update();
+				return $this->update_feed($term, $force);
+			}
+			else {
+				// no success, the URL is useless for us
+				if($verbose) EventLog::log( _t('Feed %1$s is an unsupported format.', array($term->term), __CLASS__), 'warning' );
+				$term->info->broken_text = _t("Unsupported format", __CLASS__);
+				$term->info->broken += 1;
+				$term->update();
+				return false;
+			}
 		}
 		
 		// Check if the feed itself says it wasn't updated. Looks awful because there are many ways to do so
