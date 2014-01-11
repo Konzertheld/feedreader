@@ -460,6 +460,10 @@ class FeedReader extends Plugin
 	function filter_clean_feeds($result)
 	{
 		$days = Options::get(__CLASS__ . '_autoremove_days');
+		if(!isset($days) || empty($days)) {
+			EventLog::log(_t("No posts automatically removed because no number of days was set", __CLASS__), 'info');
+			return $result;
+		}
 		$posts = Posts::get(array('before' => strtotime("-$days days"), 'status' => Post::status('read'), 'nolimit' => 1));
 		$count = (string) count($posts);
 		if($posts->delete()) {
