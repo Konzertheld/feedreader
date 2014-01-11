@@ -490,28 +490,34 @@ class FeedReader extends Plugin
 		foreach($xml->body->outline as $o) {
 			if(count($o->outline)) {
 				// This is a group
-				$term = $vocab->get_term(Utils::slugify($o['title']));
+				$title = $o['title'];
+				if(!$title) {
+					$title = $o['text'];
+				}
+				$term = $vocab->get_term(Utils::slugify($title));
 				if(!$term) {
-					$term = $vocab->add_term(new Term(Utils::slugify($o['title'])));
+					$term = $vocab->add_term(new Term(Utils::slugify($title)));
 				}
 				$groups++;
 				foreach($o->outline as $feed) {
-					$urlterm = $vocab->get_term(Utils::slugify($feed['xmlUrl']));
+					$url = $feed['xmlUrl'];
+					$urlterm = $vocab->get_term(Utils::slugify($url));
 					if(!$urlterm) {
-						$urlterm = $vocab->add_term(new Term(Utils::slugify($feed['xmlUrl'])), $term);
+						$urlterm = $vocab->add_term(new Term(Utils::slugify($url)), $term);
 					}
-					$urlterm->info->url = (string) $feed['xmlUrl'];
+					$urlterm->info->url = (string) $url;
 					$urlterm->term_display = (string) $feed['title'];
 					$urlterm->update();
 					$feeds++;
 				}
 			}
 			else {
-				$urlterm = $vocab->get_term(Utils::slugify($o['xmlUrl']));
+				$url = $feed['xmlUrl'];
+				$urlterm = $vocab->get_term(Utils::slugify($url));
 				if(!$urlterm) {
-					$urlterm = $vocab->add_term(new Term(Utils::slugify($o['xmlUrl'])));
+					$urlterm = $vocab->add_term(new Term(Utils::slugify($url)));
 				}
-				$urlterm->info->url = (string) $o['xmlUrl'];
+				$urlterm->info->url = (string) $url;
 				$urlterm->term_display = (string) $o['title'];
 				$urlterm->update();
 				$feeds++;
