@@ -157,7 +157,8 @@ class FeedReader extends Plugin
 				$groupterm = $vocab->get_term($_POST['group']);
 				if(isset($groupterm)) {
 					// Get the first child of that group
-					$desc = $groupterm->descendants()[0];
+					$descendants = $groupterm->descendants();
+					$desc = $descendants[0];
 					if(isset($desc)) {
 						// Bump all selected terms to that position
 						foreach($_POST['feed_slugs'] as $slug) {
@@ -180,7 +181,8 @@ class FeedReader extends Plugin
 				$desc->delete();
 			}
 			else if(isset($_POST['group']) && $_POST['group'] == 'none') {
-				$root = $vocab->get_root_terms()[0];
+				$rootterms = $vocab->get_root_terms();
+				$root = $rootterms[0];
 				foreach($_POST['feed_slugs'] as $slug) {
 					$term = $vocab->get_term($slug);
 					$vocab->move_term($term, $root);
