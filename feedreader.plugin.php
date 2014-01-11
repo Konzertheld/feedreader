@@ -65,6 +65,8 @@ class FeedReader extends Plugin
 		Vocabulary::create(array('description' => 'Feeds to collect posts from', 'name' => 'feeds', 'features' => array('hierarchical')));
 		// Add a periodical execution event to be triggered hourly
 		CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
+		// Add an access token to make access limitable
+		ACL::create_token( 'manage_feeds', _t('Manage feeds', __CLASS__), 'Administration', false );
 	}
 	
 	private function uninstall()
@@ -88,14 +90,16 @@ class FeedReader extends Plugin
 	}
 	
 	/**
-	 * Admin: Allow access
+	 * Admin: Check access
 	 */
-	public function filter_admin_access( $access, $page, $post_type ) {
-		if ( $page != 'manage_feeds') {
-			return $access;
+	public function filter_admin_access_tokens( array $require_any, $page )
+	{
+		switch ( $page ) {
+			case 'manage_feeds':
+				$require_any = array( 'manage_feeds' => true );
+				break;
 		}
-	 
-		return true;
+		return $require_any;
 	}
 	
 	/**
@@ -277,19 +281,21 @@ class FeedReader extends Plugin
 	 */
 	public function filter_adminhandler_post_loadplugins_main_menu( array $menu )
 	{
-		$item_menu = array( 'manage_feeds' => array(
-			'url' => URL::get( 'admin', 'page=manage_feeds'),
-			'title' => _t('Manage Feeds'),
-			'text' => _t('Manage Feeds'),
-			'hotkey' => 'F',
-			'selected' => false
-		) );
-	 
-		$slice_point = array_search( 'themes', array_keys( $menu ) );
-		$pre_slice = array_slice( $menu, 0, $slice_point);
-		$post_slice = array_slice( $menu, $slice_point);
-	 
-		$menu = array_merge( $pre_slice, $item_menu, $post_slice );
+		if(User::identify()->can('manage_feeds')) {
+			$item_menu = array( 'manage_feeds' => array(
+				'url' => URL::get( 'admin', 'page=manage_feeds'),
+				'title' => _t('Manage Feeds'),
+				'text' => _t('Manage Feeds'),
+				'hotkey' => 'F',
+				'selected' => false
+			) );
+		 
+			$slice_point = array_search( 'themes', array_keys( $menu ) );
+			$pre_slice = array_slice( $menu, 0, $slice_point);
+			$post_slice = array_slice( $menu, $slice_point);
+		 
+			$menu = array_merge( $pre_slice, $item_menu, $post_slice );
+		}
 	 
 		return $menu;
 	}
@@ -1038,8 +1044,11 @@ class FeedReader extends Plugin
 	 */
 	public function filter_post_toggle_status_link($toggle_status_link, $post)
 	{
-		$class = ($post->status == Post::status('read')) ? "read" : "unread";
-		return "<a id='toggle-$post->id' onclick='FeedReader.toggle($post->id);' class='$class'><img src='" . $this->get_url("/$class.png") . "' id='statusimg-$post->id' alt='$class' title='$class' class='statusimg'></a>";
+		if(User::identify()->can('manage_feeds')) {
+			$class = ($post->status == Post::status('read')) ? "read" : "unread";
+			return "<a id='toggle-$post->id' onclick='FeedReader.toggle($post->id);' class='$class'><img src='" . $this->get_url("/$class.png") . "' id='statusimg-$post->id' alt='$class' title='$class' class='statusimg'></a>";
+		}
+		else return false;
 	}
 	
 	/**
@@ -1049,7 +1058,7 @@ class FeedReader extends Plugin
 	public function action_auth_ajax_toggle_readstatus($handler)
 	{
 		$user = User::identify();
-		//if($user->can('feature_content')) {
+		if(User::identify()->can('manage_feeds')) {
 			// Get the data that was sent
 			$id = $handler->handler_vars[ 'q' ];
 			// Do actual work
@@ -1076,7 +1085,7 @@ class FeedReader extends Plugin
 					echo "error";
 				}
 			}
-		//}
+		}
 	}
 }	
 
