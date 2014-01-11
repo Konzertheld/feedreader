@@ -14,7 +14,6 @@
 	<div class="item clear">
 		<span class="pct5">&nbsp;</span>
 		<span class="time pct20"><?php _e('Last Update'); ?></span>
-		<span class="pct5"><?php _e('ERR'); ?></span>
 		<span class="pct15"><?php _e('Group'); ?></span>
 		<span class="pct10"><?php _e('Unread'); ?></span>
 		<span class="pct25"><?php _e('Title'); ?></span>

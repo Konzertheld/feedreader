@@ -249,7 +249,7 @@ class FeedReader extends Plugin
 				return $feeds;
 			}
 			// Broken filter
-			if(isset($_POST['filter']) && isset($_POST['only_broken']) && (!isset($term->info->broken) || empty($term->info->broken) || $term->info->broken == 0)) {
+			if(isset($_POST['filter']) && isset($_POST['only_broken']) && (!isset($term->info->broken_text) || empty($term->info->broken_text))) {
 				return $feeds;
 			}
 			// Regex filter
@@ -265,7 +265,6 @@ class FeedReader extends Plugin
 			}
 			
 			$item['group'] = $parent;
-			$item['brokencount'] = $term->info->broken;
 			$item['brokentext'] = $term->info->broken_text;
 			
 			$feeds[] = $item;
@@ -418,7 +417,6 @@ class FeedReader extends Plugin
 						// Just a group term
 						continue;
 					}
-					$term->info->broken = 0;
 					$term->info->broken_text = "";
 					$term->update();
 				}
@@ -566,7 +564,6 @@ class FeedReader extends Plugin
 		$feed_url = $term->info->url;
 		
 		if ( $feed_url == '' ) {
-			$term->info->broken += 1;
 			if($verbose) EventLog::log( _t('Feed %1$s is missing the URL.', array($term->term), __CLASS__), 'warning' );
 			$term->info->broken_text = _t("URL is missing", __CLASS__);
 			$term->update();
@@ -576,7 +573,6 @@ class FeedReader extends Plugin
 		// load the XML data
 		$xml = RemoteRequest::get_contents( $feed_url );
 		if ( !$xml ) {
-			$term->info->broken += 1;
 			if($verbose) EventLog::log( _t('Unable to fetch feed %1$s data from %2$s.', array($term->term, $feed_url), __CLASS__), 'warning' );
 			$term->info->broken_text = _t("Unable to fetch data", __CLASS__);
 			$term->update();
@@ -619,7 +615,6 @@ class FeedReader extends Plugin
 				// no success, the URL is useless for us
 				if($verbose) EventLog::log( _t('Feed %1$s is an unsupported format.', array($term->term), __CLASS__), 'warning' );
 				$term->info->broken_text = _t("Unsupported format", __CLASS__);
-				$term->info->broken += 1;
 				$term->update();
 				return false;
 			}
@@ -665,7 +660,6 @@ class FeedReader extends Plugin
 			// There were empty or invalid posts
 			if($verbose) EventLog::log( _t('Feed %1$s had invalid posts.', array($term->term), __CLASS__), 'warning' );
 			$term->info->broken_text = _t("Invalid posts", __CLASS__);
-			$term->info->broken += 1;
 			$term->update();
 			// return true anyway, the feed might contain readable posts
 			return true;

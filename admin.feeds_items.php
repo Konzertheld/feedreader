@@ -5,10 +5,9 @@
 	<div class="item clear">
 		<span class="pct5"><span><input type="checkbox" name="feed_slugs[]" value="<?php echo $feed['slug']; ?>"></span></span>
 		<span class="time pct20 minor"><span><?php isset($feed['lastupdate']) && !empty($feed['lastupdate']) ? print HabariDateTime::date_create($feed['lastupdate'])->format() : print 'none'; ?></span></span>
-		<span class="pct5 minor"><span>&nbsp;<?php if(isset($feed['brokencount'])) echo $feed['brokencount']; ?></span></span>
 		<span class="pct20 minor"><span><?php if(isset($feed['group'])) echo $feed['group']; else echo "&nbsp;"; ?></span></span>
 		<span class="pct5 minor"><span>&nbsp;<?php if(isset($feed['count'])) echo $feed['count']; ?></span></span>
-		<span class="pct45 minor"><span><?php if(isset($feed['title'])) echo $feed['title']; else echo "&nbsp;"; ?></span></span>
+		<span class="pct50 minor"><span><?php if(isset($feed['title'])) echo $feed['title']; else echo "&nbsp;"; ?></span></span>
 		<div style="clear:both;">
 			<span class="pct5 minor"><span>&nbsp;</span></span>
 			<span class="pct70 minor"><span><?php if(isset($feed['url'])) echo $feed['url']; else echo "&nbsp;"; ?></span></span>
