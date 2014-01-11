@@ -610,7 +610,7 @@ class FeedReader extends Plugin
 			}
 			
 			if(isset($atom) || isset($rss)) {
-				// we found the URL to the feed, save it and try again
+				// we found the URL to the feed, save it and try again. Prefer Atom feeds
 				$term->info->url = (isset($atom)) ? $atom : $rss;
 				$term->update();
 				return $this->update_feed($term, $force);
