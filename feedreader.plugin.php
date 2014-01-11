@@ -488,12 +488,12 @@ class FeedReader extends Plugin
 		$feeds = 0;
 		$groups = 0;
 		foreach($xml->body->outline as $o) {
+			$title = $o['title'];
+			if(!$title) {
+				$title = $o['text'];
+			}
 			if(count($o->outline)) {
 				// This is a group
-				$title = $o['title'];
-				if(!$title) {
-					$title = $o['text'];
-				}
 				$term = $vocab->get_term(Utils::slugify($title));
 				if(!$term) {
 					$term = $vocab->add_term(new Term(Utils::slugify($title)));
@@ -506,7 +506,7 @@ class FeedReader extends Plugin
 						$urlterm = $vocab->add_term(new Term(Utils::slugify($url)), $term);
 					}
 					$urlterm->info->url = (string) $url;
-					$urlterm->term_display = (string) $feed['title'];
+					$urlterm->term_display = (string) $title;
 					$urlterm->update();
 					$feeds++;
 				}
@@ -518,7 +518,7 @@ class FeedReader extends Plugin
 					$urlterm = $vocab->add_term(new Term(Utils::slugify($url)));
 				}
 				$urlterm->info->url = (string) $url;
-				$urlterm->term_display = (string) $o['title'];
+				$urlterm->term_display = (string) $title;
 				$urlterm->update();
 				$feeds++;
 			}
