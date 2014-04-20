@@ -123,7 +123,7 @@ class FeedReader extends Plugin
 		// Handle added feeds
 		if(isset($handler->handler_vars['add_feed']) && isset($handler->handler_vars['new_feedurl'])) {
 			// Make sure there is no slash at the end (avoid duplicate entries because of endslashes)
-			$url = $handler->handler_vars['new_feedurl'];
+			$url = $handler->handler_vars->raw('new_feedurl');
 			$url = (substr($url, -1) == "/") ? substr($url, 0, -1) : $url;
 			$term = $vocab->get_term(Utils::slugify($url));
 			if(!$term) {
