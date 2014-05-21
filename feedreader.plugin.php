@@ -229,9 +229,12 @@ class FeedReader extends Plugin
 	
 	function collect_feeds($feeds, &$groups, $term, $parent = null)
 	{
-		try {
-			$date = HabariDateTime::date_create($_POST['updated_before'])->int;
-		} catch(Exception $e) {}
+		if($_POST['updated_before'] != "updated before")
+		{
+			try {
+				$date = HabariDateTime::date_create($_POST['updated_before'])->int;
+			} catch(Exception $e) {}
+		}
 		
 		if(count($term->descendants()) > 0) {
 			$groups[$term->term] = $term->term_display;
@@ -639,8 +642,8 @@ class FeedReader extends Plugin
 		}
 		
 		// Check if the feed itself says it wasn't updated. Looks awful because there are many ways to do so
-		$term_lastcheck = $term->info->lastcheck;
-		if( isset($term_lastcheck) && !$force ) {
+		$term_lastupdate = $term->info->lastupdate;
+		if(isset($term_lastupdate) && !$force ) {
 			if( $dom->getElementsByTagName('pubDate')->length > 0 && $dom->getElementsByTagName('pubDate')->item(0)->parentNode->tagName == "rss") {
 				$feed_updated = $dom->getElementsByTagName('pubDate')->item(0)->nodeValue;
 			}
@@ -654,7 +657,7 @@ class FeedReader extends Plugin
 			if(isset($feed_updated)) {
 				try {
 					$feed_updated = HabariDateTime::date_create($feed_updated);
-					if( $feed_updated->int < HabariDateTime::date_create($term->info->lastcheck)->int ) {
+					if( $feed_updated->int < HabariDateTime::date_create($term->info->lastupdate)->int ) {
 						if($verbose) EventLog::log( _t('Feed %s was not updated since the last check.', array($term->term), __CLASS__), 'info' );
 						return true;
 					}
@@ -902,7 +905,7 @@ class FeedReader extends Plugin
 		
 		foreach ( $items as $item ) {
 			// Check date
-			if($term->info->lastcheck > $item["updated"]->int) {
+			if($term->info->lastupdate > $item["updated"]->int) {
 				continue;
 			}
 			
