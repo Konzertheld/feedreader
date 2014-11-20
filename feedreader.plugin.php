@@ -688,8 +688,8 @@ class FeedReader extends Plugin
 		else {
 			// Everything is okay. Save and log success.
 			$changed = $this->replace( $term, $items );
-			if($changed) {
-				$term->info->count = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit'=>1, 'count' => '*', 'vocabulary' => array('any' => array($term))));
+			if($changed || $force) {
+				$term->info->count = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit' => 1, 'count' => '*', 'vocabulary' => array('any' => array($term))));
 				$term->info->lastupdate = HabariDateTime::date_create()->int;
 			}
 			$term->info->lastcheck = HabariDateTime::date_create()->int;
