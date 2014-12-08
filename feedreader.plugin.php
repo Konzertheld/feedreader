@@ -689,7 +689,6 @@ class FeedReader extends Plugin
 			// Everything is okay. Save and log success.
 			$changed = $this->replace( $term, $items );
 			if($changed || $force) {
-				$term->info->count = Posts::get(array('status' => 'unread', 'content_type' => Post::type('entry'), 'nolimit' => 1, 'count' => '*', 'vocabulary' => array('any' => array($term))));
 				$term->info->lastupdate = HabariDateTime::date_create()->int;
 			}
 			$term->info->lastcheck = HabariDateTime::date_create()->int;
@@ -946,6 +945,16 @@ class FeedReader extends Plugin
 			}
 			
 			$post->info->feed = $term;
+			
+			if(!$post->id) {
+				if(isset($term->info->count)) {
+					$term->info->count++;
+				}
+				else {
+					$term->info->count = 1;
+				}
+				$term->update();
+			}
 
 			$result = ($post->id) ? $post->update() : $post->insert();
 			$term->associate('post', $post->id);
