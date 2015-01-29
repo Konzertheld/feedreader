@@ -386,6 +386,7 @@ class FeedReader extends Plugin
 			$actions['update'] = _t('Update All Now');
 			$actions['resetbroken'] = _t('Reset all broken feeds');
 			$actions['import'] = _t('Import OPML file');
+			$actions['export'] = _t('Export to OPML file');
 			$actions['reinstall'] = _t('Re-install (DANGEROUS)');
 		}
 		return $actions;
@@ -439,6 +440,9 @@ class FeedReader extends Plugin
 				$ui->on_success( array( $this, 'do_import') );
 				$ui->append( 'submit', 'save', _t( 'Save' ) );
 				$ui->out();
+				break;
+			case "export":
+				$this->opml_export();
 				break;
 			case "reinstall":
 				$this->uninstall();
@@ -533,6 +537,35 @@ class FeedReader extends Plugin
 		CronTab::add_hourly_cron( 'feedreader', 'load_feeds', 'Load feeds for feedreader plugin.' );
 	}
 
+	/**
+	 * Echo feed list as OPML
+	 */
+	public function opml_export()
+	{
+		$vocab = Vocabulary::get('feeds');
+		echo htmlentities('<?xml version="1.0" encoding="ISO-8859-1"?><opml version="1.0"><head><title>Habari_FeedReader_Feeds.xml</title></head><body>');
+		foreach($vocab->get_root_terms() as $term) {
+			$this->opml_helper($term);				
+		}
+		echo htmlentities("</body></opml>");
+		exit;
+	}
+	
+	function opml_helper($term)
+	{
+		if(count($term->descendants()) > 0) {
+			// group term
+			echo htmlentities("<outline text=\"{$term->term_display}\">");
+			foreach($term->descendants() as $term) {
+				$this->opml_helper($term);
+			}
+			echo htmlentities("</outline>");
+		}
+		else {
+			echo htmlentities("<outline text=\"{$term->term_display}\" type=\"link\" url=\"{$term->info->url}\"/>");
+		}
+	}
+	
 	/**
 	 * Plugin load_feeds filter, executes for the cron job defined in action_plugin_activation()
 	 * @param boolean $result The incoming result passed by other sinks for this plugin hook
