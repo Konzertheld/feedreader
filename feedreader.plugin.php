@@ -543,7 +543,7 @@ class FeedReader extends Plugin
 	public function opml_export()
 	{
 		$vocab = Vocabulary::get('feeds');
-		echo htmlentities('<?xml version="1.0" encoding="ISO-8859-1"?><opml version="1.0"><head><title>Habari_FeedReader_Feeds.xml</title></head><body>');
+		echo htmlentities('<?xml version="1.0" encoding="UTF-8"?><opml version="1.0"><head><title>Habari_FeedReader_Feeds.xml</title></head><body>');
 		foreach($vocab->get_root_terms() as $term) {
 			$this->opml_helper($term);				
 		}
@@ -555,14 +555,14 @@ class FeedReader extends Plugin
 	{
 		if(count($term->descendants()) > 0) {
 			// group term
-			echo htmlentities("<outline text=\"{$term->term_display}\">");
+			echo htmlentities("<outline text=\"{$term->term_display}\" title=\"{$term->term_display}\">");
 			foreach($term->descendants() as $term) {
 				$this->opml_helper($term);
 			}
 			echo htmlentities("</outline>");
 		}
 		else {
-			echo htmlentities("<outline text=\"{$term->term_display}\" type=\"link\" url=\"{$term->info->url}\"/>");
+			echo htmlentities("<outline text=\"{$term->term_display}\" title=\"{$term->term_display}\" type=\"rss\" xmlUrl=\"{$term->info->url}\"/>");
 		}
 	}
 	
@@ -952,6 +952,7 @@ class FeedReader extends Plugin
 			// Get existing post or create new one
 			$post = Post::get(array('all:info' => array('guid' => $item["guid"])));
 			if(!$post) {
+				EventLog::log("Creating new post because {$item['guid']} not existing yet", 'debug');
 				$post = new Post();
 				$post->content_type = 1;
 				$post->user_id = 1;
@@ -987,16 +988,18 @@ class FeedReader extends Plugin
 					$term->info->count = 1;
 				}
 				$term->update();
+				$result = $post->insert();
+			}
+			else {
+				$result = $post->update();
 			}
 
-			$result = ($post->id) ? $post->update() : $post->insert();
-			$term->associate('post', $post->id);
-			
 			if ( !$result ) {
-				if($verbose) Eventlog::log( _t("There was an error saving item %s", array($term->term), __CLASS__), 'err' );
+				if($verbose) Eventlog::log( _t("There was an error saving item %1$s in %2$s", array($post->title, $term->term), __CLASS__), 'err' );
 			}
 			else {
 				// If we got here and there was no error, at least one item was created or updated.
+				$term->associate('post', $post->id);
 				$updated = $updated || $changed;
 			}
 		}
